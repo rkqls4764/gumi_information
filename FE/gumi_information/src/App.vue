@@ -195,20 +195,22 @@ async function fetchPlaces() {
       : null
 
   return {
-    id: p.id ?? p.content_id ?? null,
-    name: p.title || '',
-    region: p.addr1 || '',
-    type: mapTypeFromCats(
-      p.cat1,
-      p.cat2,
-      p.cat3
-    ),
-    area: p.areacode || '',
-    rating: '0.0',
-    review: 0,
-    lat,
-    lng
-  }
+  ...p,   // DB 원본 전부 저장
+
+  id: p.id ?? p.content_id ?? null,
+  name: p.title || '',
+  region: p.addr1 || '',
+  type: mapTypeFromCats(
+    p.cat1,
+    p.cat2,
+    p.cat3
+  ),
+  area: p.areacode || '',
+  rating: '0.0',
+  review: 0,
+  lat,
+  lng
+}
 }).filter(
   p =>
     Number.isFinite(p.lat) &&
@@ -296,25 +298,28 @@ watch(filteredPlaces, () => {
   </div>
 
   <div v-else class="place-cards">
-    <article
-      class="place-card"
-      v-for="place in displayedPlaces"
-      :key="place.id"
->
-    >
-      <div class="place-icon">🏙️</div>
+  <article
+    class="place-card"
+    v-for="place in displayedPlaces"
+    :key="place.id"
+  >
+    <div class="place-icon">🏙️</div>
 
-      <div class="place-info">
-        <strong>{{ place.name }}</strong>
-        <span>{{ place.region }}</span>
-          </div>
-          <div class="place-rating">
-            <strong>★ {{ place.rating }}</strong>
-            <span>({{ place.review }})</span>
-          </div>
-          <button class="detail-button">상세보기</button>
-        </article>
+    <div class="place-info">
+      <strong>{{ place.name }}</strong>
+      <span>{{ place.region }}</span>
+    </div>
+
+    <div class="place-meta">
+      <div class="place-rating">
+        <strong>★ {{ place.rating }}</strong>
+        <span>({{ place.review }})</span>
       </div>
+
+      <button class="detail-button">상세보기</button>
+    </div>
+  </article>
+</div>
     </section>
 
     <button class="current-location-button" type="button">
@@ -337,14 +342,32 @@ button.selected { background: #111; color: #fff; border-color: #111; }
 .map-view { width: 100%; height: 560px; }
 .place-list h3 { margin: 0 0 16px; font-size: 1.1rem; }
 .place-cards { display: grid; gap: 16px; }
-.place-card { display: grid; grid-template-columns: 52px 1fr auto; gap: 16px; align-items: center; padding: 18px 20px; border: 1px solid #e6e6e6; border-radius: 16px; background: #fff; }
+.place-card {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 20px;
+  border: 1px solid #e6e6e6;
+  border-radius: 16px;
+  background: #fff;
+}
 .place-icon { width: 52px; height: 52px; border-radius: 16px; background: #f3f4f6; display: grid; place-items: center; font-size: 1.3rem; }
 .place-info strong { display: block; font-size: 1rem; margin-bottom: 4px; }
 .place-info span { color: #777; font-size: 0.95rem; }
 .place-rating { text-align: right; min-width: 90px; }
 .place-rating strong { display: block; color: #222; }
 .place-rating span { color: #777; font-size: 0.9rem; }
-.detail-button { border: 1px solid #d4d4d4; background: #fff; color: #333; padding: 10px 14px; border-radius: 999px; cursor: pointer; }
+.place-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.detail-button {
+  white-space: nowrap;
+}
 .current-location-button { width: 100%; margin-top: 24px; border: none; background: #111; color: #fff; padding: 16px; border-radius: 14px; font-size: 1rem; cursor: pointer; }
 .empty-message {
   padding: 40px;
