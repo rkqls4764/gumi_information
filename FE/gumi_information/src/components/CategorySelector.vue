@@ -1,38 +1,42 @@
+<!-- src/components/CategorySelector.vue -->
 <template>
-  <div class="selector-wrap">
-    <!-- 타이틀 -->
-    <div class="title-area">
-      <h2 class="title">관심 있는 분야를 선택하세요.</h2>
-      <p class="subtitle">선택한 취향에 맞는 맞춤 정보를 추천해드려요!</p>
-    </div>
+  <!-- 외부 레이아웃 영향을 받지 않고 카드 높이를 일정하게 꽉 잡아두는 고정용 최상위 컨테이너 -->
+  <div class="category-panel-container">
+    <div class="selector-wrap">
+      <!-- 타이틀 -->
+      <div class="title-area">
+        <h2 class="title">관심 있는 분야를 선택하세요.</h2>
+        <p class="subtitle">선택한 취향에 맞는 맞춤 정보를 추천해드려요!</p>
+      </div>
 
-    <!-- 카테고리 그리드 -->
-    <div class="category-grid">
-      <div 
-        v-for="category in categories" 
-        :key="category.id"
-        @click="toggleCategory(category.id)"
-        :class="['category-card', { selected: selectedCategory === category.id }]"
-      >
-        <!-- 카테고리 이미지 영역 -->
-        <div class="card-image-wrapper">
-          <img :src="category.imgUrl" :alt="category.title" class="card-image" />
-          <div class="card-image-overlay"></div>
-        </div>
-        
-        <!-- 텍스트 영역 -->
-        <div class="card-content">
-          <h3 class="card-title">{{ category.title }}</h3>
-          <p class="card-tags">{{ category.tags }}</p>
-          <p class="card-desc">{{ category.desc }}</p>
+      <!-- 카테고리 그리드 -->
+      <div class="category-grid">
+        <div 
+          v-for="category in categories" 
+          :key="category.id"
+          @click="toggleCategory(category.id)"
+          :class="['category-card', { selected: selectedCategory === category.id }]"
+        >
+          <!-- 카테고리 이미지 영역 -->
+          <div class="card-image-wrapper">
+            <img :src="category.imgUrl" :alt="category.title" class="card-image" />
+            <div class="card-image-overlay"></div>
+          </div>
+          
+          <!-- 텍스트 영역 -->
+          <div class="card-content">
+            <h3 class="card-title">{{ category.title }}</h3>
+            <p class="card-tags">{{ category.tags }}</p>
+            <p class="card-desc">{{ category.desc }}</p>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- 하단 완료 버튼 -->
-  <div class="button-area">
-    <button @click="submitSelection" class="submit-btn">선택 완료</button>
+    <!-- 하단 완료 버튼 -->
+    <div class="button-area">
+      <button @click="submitSelection" class="submit-btn">선택 완료</button>
+    </div>
   </div>
 </template>
 
@@ -79,9 +83,21 @@ const submitSelection = () => {
 </script>
 
 <style scoped>
-.selector-wrap {
-  flex: 1;
+/* 
+  💡 [핵심 해결 방법]
+  외부 Flex/Grid 아이템 정렬로 인해 자식 높이가 강제로 늘어나는 현상을 차단합니다. 
+*/
+.category-panel-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; /* 아래로 늘어나지 않고 콘텐츠 시작 부분에 정렬되도록 고정 */
+  height: 100%;
 }
+
+.selector-wrap {
+  flex: 0 0 auto; /* 부모가 늘어나더라도 같이 늘어나지 마라(비활성화) */
+}
+
 .title-area {
   margin-bottom: 32px;
 }
@@ -112,6 +128,7 @@ const submitSelection = () => {
   user-select: none;
   display: flex;
   flex-direction: column;
+  height: auto; /* 불필요하게 카드가 늘어나는 부분 방지 */
 }
 .category-card:hover {
   border-color: #868e96;
@@ -171,9 +188,13 @@ const submitSelection = () => {
   line-height: 1.5;
   margin: 0;
 }
+
+/* 💡 완료 버튼의 간격 유지 구조 설정 */
 .button-area {
-  margin-top: 40px;
+  margin-top: 32px;
+  flex: 0 0 auto; /* 버튼 크기 및 상단 여백 고정 */
 }
+
 .submit-btn {
   width: 100%;
   padding: 16px 0;
