@@ -31,7 +31,6 @@
       <!-- [1] 홈 탭 -->
       <template v-if="currentMenu === 'home'">
         <section class="left-section">
-          <!-- 💡 [수정] CategorySelector 컴포넌트에 @submit 이벤트 리스너를 연동합니다 -->
           <CategorySelector @submit="handleCategorySelection" />
         </section>
         <section class="right-section">
@@ -39,7 +38,7 @@
         </section>
       </template>
 
-      <!-- [2] 💡 캘린더 탭 -->
+      <!-- [2] 캘린더 탭 -->
       <template v-else-if="currentMenu === 'local-info'">
         <section class="full-section">
           <LocalInfoView />
@@ -72,16 +71,16 @@
       <div v-if="isChatOpen" class="chatbot-window">
         <div class="chat-header">
           <div class="chat-bot-profile">
-            <span class="bot-avatar">🤖</span>
+            <span class="bot-avatar">🍇</span>
             <div>
-              <h4>LocalHub 챗봇</h4>
-              <span class="online-dot">● 온라인</span>
+              <h4>마이구 가이드</h4>
+              <span class="online-dot">● 온라온 (탱글)</span>
             </div>
           </div>
           <button class="chat-close-btn" @click="isChatOpen = false">✕</button>
         </div>
 
-        <!-- 🤖 [추가] 카테고리 셀렉터 칩 영역 -->
+        <!-- 카테고리 셀렉터 칩 영역 -->
         <div class="chat-category-bar">
           <span class="category-bar-title">관심사 필터:</span>
           <div class="category-chips">
@@ -101,6 +100,43 @@
           <div v-for="(msg, idx) in chatMessages" :key="idx" :class="['message-bubble', msg.sender]">
             <p>{{ msg.text }}</p>
           </div>
+
+          <!-- 🍇 [수정] 대답을 기다리는 동안(isBotLoading === true) 노출되는 마이구 젤리 로딩 요소 -->
+          <div v-if="isBotLoading" class="gumi-loading-wrap">
+            <div class="gumi-loader-container">
+              <div class="orbit-item landmark-mountain">⛰️</div>
+              <div class="orbit-item landmark-river">🌊</div>
+              <div class="orbit-item landmark-building">⛩️</div>
+              <div class="orbit-item landmark-factory">🏭</div>
+              
+              <div class="gumi-jelly-pin">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="70" height="70">
+                  <defs>
+                    <radialGradient id="jellyPinGrad" cx="35%" cy="30%" r="70%">
+                      <stop offset="0%" stop-color="#D8B4FE" />
+                      <stop offset="50%" stop-color="#9333EA" />
+                      <stop offset="100%" stop-color="#581C87" />
+                    </radialGradient>
+                    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#A7F3D0" />
+                      <stop offset="100%" stop-color="#059669" />
+                    </linearGradient>
+                  </defs>
+                  <ellipse cx="50" cy="92" rx="20" ry="4" fill="#E9DDF2" opacity="0.8" />
+                  <path d="M50 15 C30 15 15 30 15 50 C15 75 50 92 50 92 C50 92 85 75 85 50 C85 30 70 15 50 15 Z" fill="url(#jellyPinGrad)"/>
+                  <circle cx="50" cy="40" r="12" fill="#C084FC" opacity="0.9" />
+                  <circle cx="41" cy="48" r="9" fill="#A855F7" opacity="0.9" />
+                  <circle cx="59" cy="48" r="9" fill="#A855F7" opacity="0.9" />
+                  <circle cx="50" cy="56" r="10" fill="#7E22CE" opacity="0.9" />
+                  <path d="M43 18 C38 8 48 8 50 16 C52 8 62 8 57 18 Z" fill="url(#leafGrad)" />
+                  <path d="M28 35 A 18 18 0 0 1 42 22" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.6" />
+                  <polygon points="62,35 64,30 69,28 64,26 62,21 60,26 55,28 60,30" fill="#FFFFFF" />
+                </svg>
+              </div>
+            </div>
+            <div class="gumi-status-text">마이구가 핫플을 골라내고 있어요...</div>
+          </div>
+
         </div>
 
         <!-- 메세지 입력창 -->
@@ -117,7 +153,7 @@
 
       <!-- 플로팅 고정 버튼 -->
       <button class="chatbot-toggle-btn" @click="isChatOpen = !isChatOpen" :class="{ open: isChatOpen }">
-        <span v-if="!isChatOpen">💬 챗봇 문의</span>
+        <span v-if="!isChatOpen">🍇 마이구 챗봇</span>
         <span v-else>✕ 닫기</span>
       </button>
     </div>
@@ -160,23 +196,19 @@ const chatCategories = [
 // 입력창 플레이스홀더 동적 변경
 const getInputPlaceholder = computed(() => {
   if (selectedChatCategory.value) {
-    return `[${selectedChatCategory.value}] 관련 질문을 입력하세요...`
+    return `[${selectedChatCategory.value}] 관련 질문을 입력하라구...`
   }
-  return "메시지를 입력하세요..."
+  return "메시지를 입력하라구..."
 })
 
-// 💡 [추가 및 수정] 메인 화면 CategorySelector 완료 이벤트를 가로채 처리하는 함수
+// 메인 화면 CategorySelector 완료 이벤트를 가로채 처리하는 함수
 const handleCategorySelection = (categoryTitle) => {
-  // 1. 전달받은 카테고리 값으로 필터 적용
   selectedChatCategory.value = categoryTitle
-  
-  // 2. 챗봇 창 열기
   isChatOpen.value = true
   
-  // 3. 챗봇 가이드 메시지 누적
   chatMessages.value.push({ 
     sender: 'bot', 
-    text: `🎯 메인 화면에서 [${categoryTitle}] 카테고리를 설정하셨습니다! 이제 질문창에 찾으시는 내용을 입력하면 관련된 정보를 맞춤 추천해 드려요.` 
+    text: `🎯 메인 화면에서 [${categoryTitle}] 카테고리를 선택했다구! 나에게 질문창에 필요한 정보를 입력하면 찰떡 정보를 맞춤 추천해 줄게.` 
   })
   
   scrollToBottom()
@@ -188,13 +220,13 @@ const toggleCategory = (categoryValue) => {
     selectedChatCategory.value = null // 다시 누르면 필터 해제
     chatMessages.value.push({ 
       sender: 'bot', 
-      text: '카테고리 필터링이 해제되었습니다. 전체 데이터에서 정보를 찾습니다.' 
+      text: '카테고리 필터링이 해제되었습니다. 전체 구미 데이터에서 정보를 찾습니다.' 
     })
   } else {
     selectedChatCategory.value = categoryValue
     chatMessages.value.push({ 
       sender: 'bot', 
-      text: `🔔 [${categoryValue}] 카테고리가 지정되었습니다. 이제 질문하시면 데이터베이스의 ${categoryValue} 관련 정보를 바탕으로 추천을 드립니다.` 
+      text: `🔔 [${categoryValue}] 카테고리가 지정되었습니다. 이제 질문하시면 내가 ${categoryValue} 핫플을 골라줄구미!` 
     })
   }
   scrollToBottom()
@@ -202,7 +234,7 @@ const toggleCategory = (categoryValue) => {
 
 // 기본 웰컴 메시지 설정
 const chatMessages = ref([
-  { sender: 'bot', text: '안녕하세요! LocalHub 가이드 챗봇입니다. 구미/경북 지역에 대해 궁금한 점이 있으신가요?' }
+  { sender: 'bot', text: '안녕! 나는 구미 지역 지키미 젤리 요정 "마이구"야. 구미/경북의 볼거리와 맛집에 대해 내게 편하게 물어봐 보라구! 🍇' }
 ])
 
 // 스크롤 아래로 내리는 함수
@@ -220,11 +252,12 @@ const sendMessage = async () => {
   const inputMessage = userMessage.value
   chatMessages.value.push({ sender: 'user', text: inputMessage })
   userMessage.value = ''
+  
+  // 1. 로딩 활성화 및 화면 이동
   isBotLoading.value = true
   scrollToBottom()
 
   try {
-    // 🤖 FastAPI 서버로 질문과 현재 선택된 카테고리를 함께 전송
     const response = await fetch('http://localhost:8000/api/chat', {
       method: 'POST',
       headers: {
@@ -232,7 +265,7 @@ const sendMessage = async () => {
       },
       body: JSON.stringify({
         message: inputMessage,
-        category: selectedChatCategory.value // 선택된 카테고리 정보 ("음식", "운동" 등 또는 null)
+        category: selectedChatCategory.value
       })
     })
 
@@ -241,17 +274,16 @@ const sendMessage = async () => {
     }
 
     const data = await response.json()
-    
-    // 백엔드가 반환한 {"reply": "..."} 값을 화면에 출력
     chatMessages.value.push({ sender: 'bot', text: data.reply })
     
   } catch (error) {
     console.error('API 통신 에러 발생:', error)
     chatMessages.value.push({ 
       sender: 'bot', 
-      text: '죄송합니다. 시스템에 일시적인 오류가 발생하여 답변을 생성하지 못했습니다.' 
+      text: '미안해구미... 일시적인 오류가 나서 정보를 찾지 못했어. 조금만 이따가 다시 물어봐줘!' 
     })
   } finally {
+    // 2. 로딩 해제 및 화면 이동
     isBotLoading.value = false
     scrollToBottom()
   }
@@ -380,7 +412,7 @@ const sendMessage = async () => {
   color: #868e96;
 }
 
-/* 🤖 플로팅 챗봇 버튼 & 창 전용 디자인 */
+/* 🤖 플로팅 챗봇 버튼 & 창 전용 디자인 (마이구 테마 반영) */
 .chatbot-wrapper {
   position: fixed;
   bottom: 24px;
@@ -393,7 +425,7 @@ const sendMessage = async () => {
 }
 
 .chatbot-toggle-btn {
-  background-color: #111111;
+  background-color: #701a75; /* 마이구 퍼플 변경 */
   color: #ffffff;
   border: none;
   padding: 14px 22px;
@@ -401,7 +433,7 @@ const sendMessage = async () => {
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(112, 26, 117, 0.2);
   transition: all 0.2s ease-in-out;
   display: flex;
   align-items: center;
@@ -410,8 +442,8 @@ const sendMessage = async () => {
 
 .chatbot-toggle-btn:hover {
   transform: translateY(-2px);
-  background-color: #222222;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  background-color: #4a044e;
+  box-shadow: 0 6px 20px rgba(112, 26, 117, 0.3);
 }
 
 .chatbot-toggle-btn.open {
@@ -424,7 +456,7 @@ const sendMessage = async () => {
   background-color: #ffffff;
   border-radius: 16px;
   border: 1px solid #e9ecef;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 32px rgba(112, 26, 117, 0.12);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -437,7 +469,7 @@ const sendMessage = async () => {
 }
 
 .chat-header {
-  background-color: #111111;
+  background-color: #701a75; /* 마이구 퍼플 변경 */
   color: #ffffff;
   padding: 16px;
   display: flex;
@@ -517,10 +549,10 @@ const sendMessage = async () => {
 }
 
 .category-chip.active {
-  background-color: #111111;
-  border-color: #111111;
+  background-color: #701a75; /* 마이구 퍼플 변경 */
+  border-color: #701a75;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 6px rgba(112, 26, 117, 0.15);
 }
 
 .chat-messages {
@@ -552,7 +584,7 @@ const sendMessage = async () => {
 }
 
 .message-bubble.user {
-  background-color: #111111;
+  background-color: #701a75; /* 마이구 퍼플 변경 */
   color: #ffffff;
   align-self: flex-end;
   border-top-right-radius: 2px;
@@ -574,10 +606,10 @@ const sendMessage = async () => {
   font-size: 14px;
   outline: none;
 }
-.chat-input-form input:focus { border-color: #111; }
+.chat-input-form input:focus { border-color: #701a75; }
 
 .chat-input-form button {
-  background-color: #111;
+  background-color: #701a75; /* 마이구 퍼플 변경 */
   color: white;
   border: none;
   padding: 0 16px;
@@ -589,6 +621,82 @@ const sendMessage = async () => {
 .chat-input-form button:disabled {
   background-color: #868e96;
   cursor: not-allowed;
+}
+
+/* 🍇 마이구 젤리 로딩 CSS 구현 */
+.gumi-loading-wrap {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 16px;
+  padding: 12px 20px;
+  box-shadow: 0 4px 12px rgba(112, 26, 117, 0.05);
+  border-bottom-left-radius: 2px;
+  animation: fadeIn 0.3s ease-out;
+  border: 1px solid #E9DDF2;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.gumi-loader-container {
+  position: relative;
+  width: 120px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gumi-jelly-pin {
+  width: 70px;
+  height: 70px;
+  animation: jellyBounce 2s infinite ease-in-out;
+  z-index: 2;
+}
+
+.orbit-item {
+  position: absolute;
+  font-size: 15px;
+  animation: orbitRotate 3.5s infinite linear;
+}
+
+.landmark-mountain { animation-delay: 0s; }
+.landmark-river    { animation-delay: -0.87s; }
+.landmark-building { animation-delay: -1.75s; }
+.landmark-factory  { animation-delay: -2.62s; }
+
+.gumi-status-text {
+  font-size: 11px;
+  color: #701A75;
+  font-weight: 600;
+  margin-top: 4px;
+  animation: textFlicker 1.5s infinite;
+}
+
+/* 🍇 애니메이션 키프레임 세팅 */
+@keyframes jellyBounce {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scaleY(1.08) scaleX(0.95) translateY(-8px); }
+  75% { transform: scaleY(0.92) scaleX(1.04) translateY(1px); }
+}
+
+@keyframes orbitRotate {
+  0% { transform: rotate(0deg) translate(45px) rotate(0deg) scale(1); opacity: 1; z-index: 3; }
+  50% { transform: rotate(180deg) translate(45px) rotate(-180deg) scale(0.7); opacity: 0.4; z-index: 1; }
+  100% { transform: rotate(360deg) translate(45px) rotate(-360deg) scale(1); opacity: 1; z-index: 3; }
+}
+
+@keyframes textFlicker {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 1024px) {
