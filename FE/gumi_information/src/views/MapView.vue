@@ -136,7 +136,41 @@ const totalPages = computed(() => {
   return Math.max(1, Math.ceil(filteredPlaces.value.length / pageSize))
 })
 
+const pageWindow = computed(() => {
+  const pages = []
+  const total = totalPages.value
+  const current = currentPage.value
+
+  if (total <= 7) {
+    for (let i = 1; i <= total; i += 1) {
+      pages.push(i)
+    }
+    return pages
+  }
+
+  pages.push(1)
+
+  if (current > 4) {
+    pages.push('...')
+  }
+
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+
+  for (let i = start; i <= end; i += 1) {
+    pages.push(i)
+  }
+
+  if (current < total - 3) {
+    pages.push('...')
+  }
+
+  pages.push(total)
+  return pages
+})
+
 const goToPage = (page) => {
+  if (page === '...') return
   currentPage.value = Math.max(1, Math.min(totalPages.value, page))
 }
 
@@ -506,16 +540,18 @@ watch(filteredPlaces, () => {
     이전
   </button>
 
-  <button
-    v-for="page in totalPages"
-    :key="page"
-    class="page-number"
-    :class="{ selected: currentPage === page }"
-    type="button"
-    @click="goToPage(page)"
-  >
-    {{ page }}
-  </button>
+  <div class="page-numbers">
+    <button
+      v-for="page in pageWindow"
+      :key="page"
+      class="page-number"
+      :class="{ selected: currentPage === page, ellipsis: page === '...' }"
+      type="button"
+      @click="goToPage(page)"
+    >
+      {{ page }}
+    </button>
+  </div>
 
   <button
     class="page-nav"
@@ -729,5 +765,17 @@ button.selected { background: #111; color: #fff; border-color: #111; }
   background: #111;
   color: #fff;
   border-color: #111;
+}
+.page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+.page-number.ellipsis {
+  border: none;
+  background: transparent;
+  cursor: default;
+  pointer-events: none;
 }
 </style>
