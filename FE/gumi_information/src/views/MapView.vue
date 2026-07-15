@@ -628,7 +628,12 @@ button.selected { background: #111; color: #fff; border-color: #111; }
 .map-card { border: 1px solid #e0e0e0; border-radius: 18px; overflow: hidden; margin-bottom: 24px; background: #fafafa; }
 .map-header { padding: 16px 20px; border-bottom: 1px solid #ececec; display: flex; align-items: center; justify-content: space-between; }
 .map-title { font-weight: 700; font-size: 1rem; }
-.map-view { width: 100%; height: 560px; }
+.map-view {
+  width: 100%;
+  height: 560px;
+  position: relative;
+  z-index: 1;
+}
 .place-list h3 { margin: 0 0 16px; font-size: 1.1rem; }
 .place-cards { display: grid; gap: 16px; }
 .place-card {
