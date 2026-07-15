@@ -51,11 +51,69 @@ const categories = [
   { id: 'stay', label: '숙박' }
 ]
 
+const inferRegionInfo = (place) => {
+  const text = `${place.addr1 || ''} ${place.addr2 || ''} ${place.title || ''}`.toLowerCase()
+
+  if (text.includes('대구')) {
+    return { key: 'daegu', label: '대구광역시' }
+  }
+
+  if (text.includes('성주')) {
+    return { key: 'seongju', label: '성주군' }
+  }
+
+  if (text.includes('고령')) {
+    return { key: 'goryeong', label: '고령군' }
+  }
+
+  if (text.includes('김천')) {
+    return { key: 'kimcheon', label: '김천시' }
+  }
+
+  if (text.includes('칠곡')) {
+    return { key: 'chilgok', label: '칠곡군' }
+  }
+
+  if (text.includes('구미')) {
+    return { key: 'gumi', label: '구미시' }
+  }
+
+  const areaCode = `${place.areacode || ''}`.toLowerCase()
+
+  if (areaCode.includes('daegu') || areaCode.includes('대구')) {
+    return { key: 'daegu', label: '대구광역시' }
+  }
+
+  if (areaCode.includes('seongju') || areaCode.includes('성주')) {
+    return { key: 'seongju', label: '성주군' }
+  }
+
+  if (areaCode.includes('goryeong') || areaCode.includes('고령')) {
+    return { key: 'goryeong', label: '고령군' }
+  }
+
+  if (areaCode.includes('kimcheon') || areaCode.includes('김천')) {
+    return { key: 'kimcheon', label: '김천시' }
+  }
+
+  if (areaCode.includes('chilgok') || areaCode.includes('칠곡')) {
+    return { key: 'chilgok', label: '칠곡군' }
+  }
+
+  if (areaCode.includes('gumi') || areaCode.includes('구미')) {
+    return { key: 'gumi', label: '구미시' }
+  }
+
+  return null
+}
+
 const regions = [
   { id: 'all', label: '전체' },
   { id: 'gumi', label: '구미시' },
-  { id: 'kimcheon', label: '김천시' },
-  { id: 'chilgok', label: '칠곡군' }
+  { id: 'daegu', label: '대구광역시' },
+  { id: 'chilgok', label: '칠곡군' },
+  { id: 'seongju', label: '성주군' },
+  { id: 'goryeong', label: '고령군' }
 ]
 
 const places = ref([])
@@ -126,8 +184,8 @@ const filteredPlaces = computed(() => {
       place.type === activeCategory.value
 
     const regionMatch =
-      activeRegion.value === 'all' ||
-      place.area === activeRegion.value
+  activeRegion.value === 'all' ||
+  place.regionKey === activeRegion.value
 
     const boundsMatch =
       !mapBounds.value ||
@@ -252,20 +310,27 @@ async function fetchPlaces() {
         : null
 
     const type = mapTypeFromCats({
-  ...p,
-  content_type_id: p.content_type_id ?? p.contenttypeid,
-  title: p.title || '',
-  addr1: p.addr1 || '',
-  addr2: p.addr2 || '',
-  cat1: p.cat1 || '',
-  cat2: p.cat2 || '',
-  cat3: p.cat3 || '',
-  lcls_systm1: p.lcls_systm1 || '',
-  lcls_systm2: p.lcls_systm2 || '',
-  lcls_systm3: p.lcls_systm3 || ''
-})
+      ...p,
+      content_type_id: p.content_type_id ?? p.contenttypeid,
+      title: p.title || '',
+      addr1: p.addr1 || '',
+      addr2: p.addr2 || '',
+      cat1: p.cat1 || '',
+      cat2: p.cat2 || '',
+      cat3: p.cat3 || '',
+      lcls_systm1: p.lcls_systm1 || '',
+      lcls_systm2: p.lcls_systm2 || '',
+      lcls_systm3: p.lcls_systm3 || ''
+    })
 
-    return {
+    const regionInfo = inferRegionInfo({
+      addr1: p.addr1 || '',
+      addr2: p.addr2 || '',
+      title: p.title || '',
+      areacode: p.areacode || ''
+    })
+
+return {
   ...p,
   id: p.id ?? p.content_id ?? null,
   name: p.title || '',
@@ -273,6 +338,8 @@ async function fetchPlaces() {
   address: p.addr1 || p.addr2 || '',
   type,
   area: p.areacode || '',
+  regionKey: regionInfo?.key || null,
+  regionLabel: regionInfo?.label || '',
   rating: '0.0',
   review: 0,
   lat,
@@ -314,6 +381,19 @@ onMounted(() => {
   initMap()
   fetchPlaces()
 })
+
+watch(
+  regions,
+  (nextRegions) => {
+    if (
+      activeRegion.value !== 'all' &&
+      !nextRegions.some(item => item.id === activeRegion.value)
+    ) {
+      activeRegion.value = 'all'
+    }
+  },
+  { immediate: true }
+)
 
 watch(filteredPlaces, () => {
   updateMarkers()
