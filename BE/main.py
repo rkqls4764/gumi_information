@@ -11,6 +11,17 @@ engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
+FESTIVAL_CONTENT_TYPE_ID = 15
+
+# lcls_systm2 분류체계 코드 -> 캘린더 카테고리 매핑
+# EV01: 대부분의 축제/페스티벌, EV02: 공연류, EV03: 박람회/전시성 행사
+CATEGORY_MAP = {
+    "EV01": "축제",
+    "EV02": "공연",
+    "EV03": "행사",
+}
+DEFAULT_CATEGORY = "기타"
+
 # ==========================================
 # 1. 여행지 데이터 모델 (기존 유지)
 # ==========================================
@@ -43,6 +54,35 @@ class Place(Base):
     createdtime = Column(String)
     modifiedtime = Column(String)
     source_region = Column(String)
+
+
+# ==========================================
+# 1-1. 축제 상세정보 데이터 모델 (신규 추가)
+# ==========================================
+class FestivalDetail(Base):
+    __tablename__ = "festival_details"
+
+    content_id = Column(String, primary_key=True, index=True)
+    eventstartdate = Column(String)
+    eventenddate = Column(String)
+    playtime = Column(String)
+    eventplace = Column(String)
+    eventhomepage = Column(String)
+    sponsor1 = Column(String)
+    sponsor1tel = Column(String)
+    sponsor2 = Column(String)
+    sponsor2tel = Column(String)
+    agelimit = Column(String)
+    bookingplace = Column(String)
+    placeinfo = Column(String)
+    program = Column(String)
+    subevent = Column(String)
+    usetimefestival = Column(String)
+    discountinfofestival = Column(String)
+    spendtimefestival = Column(String)
+    festivalgrade = Column(String)
+    fetched_at = Column(String)
+
 
 # ==========================================
 # 2. 커뮤니티 게시판 데이터 모델 (비밀번호 추가)
@@ -112,6 +152,18 @@ def get_db():
 def place_to_dict(place):
     return {col.name: getattr(place, col.name) for col in Place.__table__.columns}
 
+
+def to_iso_date(yyyymmdd: Optional[str]) -> Optional[str]:
+    """'20260701' -> '2026-07-01'. 값이 없거나 형식이 이상하면 None."""
+    if not yyyymmdd or len(yyyymmdd) != 8:
+        return None
+    return f"{yyyymmdd[0:4]}-{yyyymmdd[4:6]}-{yyyymmdd[6:8]}"
+
+
+def resolve_category(lcls_systm2: Optional[str]) -> str:
+    return CATEGORY_MAP.get(lcls_systm2, DEFAULT_CATEGORY)
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -129,6 +181,52 @@ def get_place(content_id: str, db: Session = Depends(get_db)):
     place = db.query(Place).filter(Place.content_id == content_id).first()
     if not place: return {"detail": "not found"}
     return place_to_dict(place)
+
+
+# ------------------------------------------
+# 축제 캘린더 API 엔드포인트
+# ------------------------------------------
+@app.get("/festivals")
+def list_festivals(
+    category: Optional[str] = Query(None, description="축제 | 행사 | 공연 | 전시 | 기타"),
+    db: Session = Depends(get_db),
+):
+    """
+    캘린더 화면(FE)이 바로 쓸 수 있는 형태로 축제/행사 목록을 반환한다.
+    festival_details가 아직 없는 축제(=날짜 미조회)는 목록에서 제외한다.
+    """
+    rows = (
+        db.query(Place, FestivalDetail)
+        .join(FestivalDetail, Place.content_id == FestivalDetail.content_id)
+        .filter(Place.content_type_id == FESTIVAL_CONTENT_TYPE_ID)
+        .order_by(FestivalDetail.eventstartdate)
+        .all()
+    )
+
+    result = []
+    for place, detail in rows:
+        start = to_iso_date(detail.eventstartdate)
+        end = to_iso_date(detail.eventenddate) or start
+        if not start:
+            continue  # 날짜 정보가 없는 항목은 캘린더에 표시할 수 없으므로 제외
+
+        cat = resolve_category(place.lcls_systm2)
+        if category and category != cat:
+            continue
+
+        result.append(
+            {
+                "id": place.content_id,
+                "title": place.title,
+                "category": cat,
+                "start": start,
+                "end": end,
+                "time": detail.playtime or None,
+                "location": detail.eventplace or place.addr1,
+            }
+        )
+
+    return result
 
 
 # ------------------------------------------
