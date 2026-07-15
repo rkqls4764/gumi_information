@@ -1,32 +1,5 @@
 <template>
   <div class="page">
-    <!-- Top Nav -->
-    <header class="top-nav">
-      <div class="brand">
-        <span class="brand-icon">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" fill="currentColor"/><circle cx="12" cy="10" r="2.5" fill="#fff"/></svg>
-        </span>
-        <div class="brand-text">
-          <strong>LocalHub</strong>
-          <span>구미/경북 지역 정보 &amp; 커뮤니티</span>
-        </div>
-      </div>
-
-      <nav class="nav-tabs">
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          type="button"
-          class="nav-tab"
-          :class="{ active: activeTab === tab.key }"
-          @click="activeTab = tab.key"
-        >
-          <component :is="tab.icon" class="nav-tab-icon" />
-          {{ tab.label }}
-        </button>
-      </nav>
-    </header>
-
     <main class="content">
       <div class="content-header">
         <h1>캘린더</h1>
@@ -48,10 +21,9 @@
               <button type="button" class="btn-icon" @click="navigate(1)" aria-label="다음">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
-              <button type="button" class="month-label">
+              <span class="month-label">
                 {{ viewMode === '월' ? monthLabel : weekLabel }}
-                <svg viewBox="0 0 24 24" fill="none" class="chevron-down"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
+              </span>
             </div>
             <div class="controls-left" v-else>
               <span class="list-summary">전체 일정 {{ filteredEvents.length }}건</span>
@@ -91,9 +63,9 @@
                       v-for="ev in day.events"
                       :key="ev.id"
                       class="event-chip"
-                      :title="ev.title"
+                      :data-tooltip="ev.title"
                     >
-                      {{ ev.title }}
+                      <span class="event-chip-text">{{ ev.title }}</span>
                     </span>
                   </div>
                 </div>
@@ -170,10 +142,6 @@
         <aside class="sidebar">
           <div class="sidebar-header">
             <h2>다가오는 일정</h2>
-            <button type="button" class="link-btn">
-              전체 일정 보기
-              <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
           </div>
 
           <ul class="upcoming-list">
@@ -190,27 +158,12 @@
 
               <div class="upcoming-actions">
                 <span class="category-tag">{{ ev.category }}</span>
-                <button
-                  type="button"
-                  class="bookmark-btn"
-                  :class="{ active: ev.bookmarked }"
-                  @click="ev.bookmarked = !ev.bookmarked"
-                  aria-label="북마크"
-                >
-                  <svg viewBox="0 0 24 24" :fill="ev.bookmarked ? 'currentColor' : 'none'">
-                    <path d="M6 4h12v16l-6-4-6 4V4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                  </svg>
-                </button>
               </div>
             </li>
           </ul>
         </aside>
       </div>
     </main>
-
-    <button type="button" class="fab" aria-label="커뮤니티 채팅">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 1 1 3.2 6.4L4 20l1.3-3.6A7.96 7.96 0 0 1 4 12z" fill="currentColor"/></svg>
-    </button>
   </div>
 </template>
 
@@ -595,9 +548,6 @@ function formatEventRange(ev) {
   gap: 4px;
   font-size: 16px;
   font-weight: 700;
-  border: none;
-  background: none;
-  cursor: pointer;
   padding: 8px 6px;
 }
 
@@ -637,7 +587,6 @@ function formatEventRange(ev) {
 .calendar-grid {
   border: 1px solid #e5e5e5;
   border-radius: 10px;
-  overflow: hidden;
 }
 
 .weekday-row {
@@ -645,6 +594,7 @@ function formatEventRange(ev) {
   grid-template-columns: repeat(7, 1fr);
   background: #fafafa;
   border-bottom: 1px solid #e5e5e5;
+  border-radius: 9px 9px 0 0;
 }
 
 .weekday {
@@ -671,6 +621,7 @@ function formatEventRange(ev) {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .day-cell:first-child {
@@ -701,6 +652,7 @@ function formatEventRange(ev) {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .event-chip {
@@ -709,10 +661,36 @@ function formatEventRange(ev) {
   font-size: 11px;
   padding: 4px 6px;
   border-radius: 4px;
-  white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: break-word;
-  line-height: 1.4;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  position: relative;
+  cursor: default;
+  /* overflow: hidden을 여기 두면 아래 :hover::after 툴팁까지 같이 잘려서 안 보임 */
+}
+
+.event-chip-text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.event-chip:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 4px;
+  background: #1a1a1a;
+  color: #fff;
+  padding: 5px 9px;
+  border-radius: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 30;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 /* ---- Week view ---- */

@@ -1,38 +1,42 @@
+<!-- src/components/CategorySelector.vue -->
 <template>
-  <div class="selector-wrap">
-    <!-- 타이틀 -->
-    <div class="title-area">
-      <h2 class="title">관심 있는 분야를 선택하세요.</h2>
-      <p class="subtitle">선택한 취향에 맞는 맞춤 정보를 추천해드려요!</p>
-    </div>
+  <!-- 외부 레이아웃 영향을 받지 않고 카드 높이를 일정하게 꽉 잡아두는 고정용 최상위 컨테이너 -->
+  <div class="category-panel-container">
+    <div class="selector-wrap">
+      <!-- 타이틀 -->
+      <div class="title-area">
+        <h2 class="title">관심 있는 분야를 선택하세요.</h2>
+        <p class="subtitle">선택한 취향에 맞는 맞춤 정보를 추천해드려요!</p>
+      </div>
 
-    <!-- 카테고리 그리드 -->
-    <div class="category-grid">
-      <div 
-        v-for="category in categories" 
-        :key="category.id"
-        @click="toggleCategory(category.id)"
-        :class="['category-card', { selected: selectedCategory === category.id }]"
-      >
-        <!-- 카테고리 이미지 영역 -->
-        <div class="card-image-wrapper">
-          <img :src="category.imgUrl" :alt="category.title" class="card-image" />
-          <div class="card-image-overlay"></div>
-        </div>
-        
-        <!-- 텍스트 영역 -->
-        <div class="card-content">
-          <h3 class="card-title">{{ category.title }}</h3>
-          <p class="card-tags">{{ category.tags }}</p>
-          <p class="card-desc">{{ category.desc }}</p>
+      <!-- 카테고리 그리드 -->
+      <div class="category-grid">
+        <div 
+          v-for="category in categories" 
+          :key="category.id"
+          @click="toggleCategory(category.id)"
+          :class="['category-card', { selected: selectedCategory === category.id }]"
+        >
+          <!-- 카테고리 이미지 영역 -->
+          <div class="card-image-wrapper">
+            <img :src="category.imgUrl" :alt="category.title" class="card-image" />
+            <div class="card-image-overlay"></div>
+          </div>
+          
+          <!-- 텍스트 영역 -->
+          <div class="card-content">
+            <h3 class="card-title">{{ category.title }}</h3>
+            <p class="card-tags">{{ category.tags }}</p>
+            <p class="card-desc">{{ category.desc }}</p>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- 하단 완료 버튼 -->
-  <div class="button-area">
-    <button @click="submitSelection" class="submit-btn">선택 완료</button>
+    <!-- 하단 완료 버튼 -->
+    <div class="button-area">
+      <button @click="submitSelection" class="submit-btn">선택 완료</button>
+    </div>
   </div>
 </template>
 
@@ -47,6 +51,9 @@ import foodImg from '../assets/food.png'
 import travelImg from '../assets/travel.png'
 import shoppingImg from '../assets/shopping.png'
 
+// 💡 [추가] 부모 컴포넌트로 데이터를 전송하기 위한 emit 정의
+// const emit = defineEmits(['submit'])
+
 const categories = [
   { id: 'sports', title: '운동', tags: '헬스, 러닝, 등산 등', desc: '건강한 라이프스타일 정보를 받아보세요!', imgUrl: sportsImg },
   { id: 'food', title: '음식', tags: '맛집, 카페, 지역 먹거리 등', desc: '맛있는 정보를 받아보세요!', imgUrl: foodImg },
@@ -54,16 +61,12 @@ const categories = [
   { id: 'shopping', title: '쇼핑', tags: '지역 쇼핑 정보, 핫플, 특산물 등', desc: '쇼핑 정보를 받아보세요!', imgUrl: shoppingImg }
 ]
 
-// 💡 1개만 선택하므로 배열([]) 대신 초기값 null인 문자열/식별자 상태로 변경
 const selectedCategory = ref(null)
 
-// 💡 선택 토글 로직 수정
 const toggleCategory = (id) => {
   if (selectedCategory.value === id) {
-    // 이미 선택된 것을 다시 누르면 선택 해제
     selectedCategory.value = null
   } else {
-    // 다른 것을 누르면 해당 카테고리로 단일 교체
     selectedCategory.value = id
   }
 }
@@ -75,17 +78,28 @@ const submitSelection = () => {
     alert('카테고리를 선택해 주세요.')
     return
   }
-
-  emit('category-selected', selectedCategory.value)
-
-  alert('선택 완료')
+  
+  // 현재 선택된 카테고리의 한글 타이틀 찾기 (예: "운동")
+  const targetCategory = categories.find(c => c.id === selectedCategory.value)
+  const categoryTitle = targetCategory ? targetCategory.title : selectedCategory.value
+  
+  // 💡 [수정] 알림창만 띄우는 대신, 부모(App.vue)로 'submit' 이벤트와 한글 카테고리명을 전달합니다.
+  emit('submit', categoryTitle)
 }
 </script>
 
 <style scoped>
-.selector-wrap {
-  flex: 1;
+.category-panel-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  height: 100%;
 }
+
+.selector-wrap {
+  flex: 0 0 auto;
+}
+
 .title-area {
   margin-bottom: 32px;
 }
@@ -116,6 +130,7 @@ const submitSelection = () => {
   user-select: none;
   display: flex;
   flex-direction: column;
+  height: auto;
 }
 .category-card:hover {
   border-color: #868e96;
@@ -175,9 +190,12 @@ const submitSelection = () => {
   line-height: 1.5;
   margin: 0;
 }
+
 .button-area {
-  margin-top: 40px;
+  margin-top: 32px;
+  flex: 0 0 auto;
 }
+
 .submit-btn {
   width: 100%;
   padding: 16px 0;
@@ -196,7 +214,6 @@ const submitSelection = () => {
   border-color: #111;
 }
 
-/* 📱 모바일 최적화: 한 화면에 4개가 다 보이도록 조절 */
 @media (max-width: 640px) {
   .title-area {
     margin-bottom: 16px;
@@ -209,17 +226,17 @@ const submitSelection = () => {
     margin-top: 4px;
   }
   .category-grid {
-    grid-template-columns: 1fr 1fr; /* 모바일에서도 2x2 유지 */
-    gap: 10px; /* 카드 간격 축소 */
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
   .card-image-wrapper {
-    height: 75px; /* 이미지 영역 대폭 축소 */
+    height: 75px;
   }
   .card-content {
-    padding: 10px 8px; /* 패딩 축소 */
+    padding: 10px 8px;
   }
   .card-title {
-    font-size: 14px; /* 글꼴 크기 축소 */
+    font-size: 14px;
     margin-bottom: 2px;
   }
   .card-tags {
@@ -227,7 +244,7 @@ const submitSelection = () => {
     margin-bottom: 4px;
   }
   .card-desc {
-    display: none; /* 설명글은 모바일에서 숨겨서 공간 확보 */
+    display: none;
   }
   .button-area {
     margin-top: 16px;

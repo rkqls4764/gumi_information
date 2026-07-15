@@ -5,16 +5,17 @@
     <div class="filter-bar">
       <div class="search-box">
         <span class="search-icon">🔍</span>
-        <input v-model="searchQuery" @input="fetchPosts" type="text" placeholder="검색어를 입력하세요..." class="search-input" />
+        <input v-model="searchQuery" @input="handleSearch" type="text" placeholder="검색어를 입력하세요..." class="search-input" />
       </div>
       <button @click="openWriteModal" class="write-top-btn">✏️ 글쓰기</button>
     </div>
 
     <!-- 게시글 목록 -->
     <div class="post-list">
-      <div v-if="posts.length === 0" class="no-posts">등록된 게시글이 없습니다.</div>
+      <div v-if="paginatedPosts.length === 0" class="no-posts">등록된 게시글이 없습니다.</div>
       
-      <div v-for="post in posts" :key="post.id" class="post-card" :class="{ 'is-active': activePostId === post.id }">
+      <!-- posts 대신 paginatedPosts를 순회하도록 변경 -->
+      <div v-for="post in paginatedPosts" :key="post.id" class="post-card" :class="{ 'is-active': activePostId === post.id }">
         <!-- 상단 요약 (클릭 시 상세 열기 + 조회수 증가) -->
         <div class="post-summary-row" @click="toggleDetail(post.id)">
           <div class="post-main-info">
@@ -44,6 +45,34 @@
       </div>
     </div>
 
+    <!-- 🎯 [신규 추가] 페이지네이션 UI -->
+    <div v-if="totalPages > 1" class="pagination-container">
+      <button 
+        :disabled="currentPage === 1" 
+        @click="currentPage--" 
+        class="page-btn prev"
+      >
+        이전
+      </button>
+      
+      <button 
+        v-for="page in totalPages" 
+        :key="page" 
+        @click="currentPage = page"
+        :class="['page-number-btn', { active: currentPage === page }]"
+      >
+        {{ page }}
+      </button>
+
+      <button 
+        :disabled="currentPage === totalPages" 
+        @click="currentPage++" 
+        class="page-btn next"
+      >
+        다음
+      </button>
+    </div>
+
     <!-- [모달] 글쓰기 및 수정 통합 팝업 -->
     <div v-if="showModal" class="modal-overlay">
       <div class="modal-content">
@@ -64,7 +93,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 
 const API_URL = 'http://localhost:8000/api/posts'
@@ -73,11 +102,27 @@ const searchQuery = ref('')
 const posts = ref([])
 const activePostId = ref(null) // 현재 펼쳐진 상세글 ID
 
+// 🎯 [신규 추가] 페이지네이션 상태 변수
+const currentPage = ref(1)
+const itemsPerPage = 10
+
 // 모달 및 폼 상태 관리
 const showModal = ref(false)
 const isEditMode = ref(false)
 const currentPostId = ref(null)
 const form = ref({ title: '', summary: '', author: '', password: '' })
+
+// 🎯 [신규 추가] 현재 페이지에 해당하는 10개의 게시글만 가공하는 계산 프로퍼티
+const paginatedPosts = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage
+  const end = start + itemsPerPage
+  return posts.value.slice(start, end)
+})
+
+// 🎯 [신규 추가] 총 페이지 수 계산 프로퍼티
+const totalPages = computed(() => {
+  return Math.ceil(posts.value.length / itemsPerPage)
+})
 
 // 목록 조회
 const fetchPosts = async () => {
@@ -89,17 +134,21 @@ const fetchPosts = async () => {
   }
 }
 
+// 🎯 [신규 추가] 검색어 입력 시 첫 페이지로 리셋하며 목록 조회
+const handleSearch = () => {
+  currentPage.value = 1
+  fetchPosts()
+}
+
 // 상세조회 (토글 방식 및 조회수 실시간 증가 반영)
 const toggleDetail = async (id) => {
   if (activePostId.value === id) {
     activePostId.value = null
   } else {
     try {
-      // 상세 단건조회 API를 요청하여 백엔드 조회수 올리기
       const response = await axios.get(`${API_URL}/${id}`)
       activePostId.value = id
       
-      // 목록 내 해당 아이템의 조회수 실시간 갱신 처리
       const target = posts.value.find(p => p.id === id)
       if (target) target.views = response.data.views
     } catch (error) {
@@ -131,7 +180,7 @@ const submitForm = async () => {
   }
 
   if (isEditMode.value) {
-    // 💥 수정 요청 (PUT)
+    // 수정 요청 (PUT)
     try {
       await axios.put(`${API_URL}/${currentPostId.value}`, form.value)
       alert('수정 완료되었습니다.')
@@ -142,7 +191,7 @@ const submitForm = async () => {
       else alert('수정에 실패했습니다.')
     }
   } else {
-    // 💥 작성 요청 (POST)
+    // 작성 요청 (POST)
     const today = new Date()
     const formattedDate = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`
     
@@ -150,6 +199,7 @@ const submitForm = async () => {
       await axios.post(API_URL, { ...form.value, date: formattedDate })
       alert('등록 완료되었습니다.')
       showModal.value = false
+      currentPage.value = 1 // 새 글 등록 시 첫 페이지로 이동
       fetchPosts()
     } catch (error) {
       alert('등록 실패')
@@ -166,6 +216,13 @@ const handleDelete = async (id) => {
     await axios.delete(`${API_URL}/${id}`, { params: { password } })
     alert('삭제되었습니다.')
     activePostId.value = null
+    
+    // 만약 현재 페이지의 마지막 글을 삭제했다면 이전 페이지로 이동시킴
+    const tempTotalPages = Math.ceil((posts.value.length - 1) / itemsPerPage)
+    if (currentPage.value > tempTotalPages && currentPage.value > 1) {
+      currentPage.value = tempTotalPages
+    }
+    
     fetchPosts()
   } catch (error) {
     if (error.response?.status === 403) alert('비밀번호가 일치하지 않습니다.')
@@ -173,12 +230,10 @@ const handleDelete = async (id) => {
   }
 }
 
-// 🔥 [신규 추가] 좋아요 증가 API 호출 함수
+// 좋아요 증가 API 호출 함수
 const handleLike = async (id) => {
   try {
     const response = await axios.post(`${API_URL}/${id}/like`)
-    
-    // 현재 목록 데이터에서 해당 게시글을 찾아 좋아요 수 즉시 갱신
     const target = posts.value.find(p => p.id === id)
     if (target) {
       target.likes = response.data.likes
@@ -212,12 +267,11 @@ onMounted(() => { fetchPosts() })
 .like-stat-btn {
   cursor: pointer;
   transition: transform 0.1s ease;
-  user-select: none; /* 더블클릭 시 텍스트 블록 지정 방지 */
+  user-select: none;
 }
 .like-stat-btn:hover {
-  transform: scale(1.15); /* 마우스 올리면 하트가 살짝 커짐 */
+  transform: scale(1.15);
 }
-
 
 .post-detail-content { padding: 20px; background: #fafafa; border-top: 1px solid #f1f3f5; }
 .full-text { font-size: 14px; color: #333; line-height: 1.6; margin: 0 0 16px 0; white-space: pre-wrap; }
@@ -226,6 +280,57 @@ onMounted(() => { fetchPosts() })
 .action-btn.delete { color: #e03131; border-color: #ffc9c9; }
 
 .no-posts { text-align: center; color: #aaa; padding: 40px 0; }
+
+/* 🎯 [신규 추가] 페이지네이션 스타일 */
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f3f5;
+}
+.page-btn {
+  padding: 6px 12px;
+  border: 1px solid #dee2e6;
+  background-color: #ffffff;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.page-btn:hover:not(:disabled) {
+  background-color: #f1f3f5;
+}
+.page-btn:disabled {
+  color: #adb5bd;
+  background-color: #e9ecef;
+  cursor: not-allowed;
+}
+.page-number-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #dee2e6;
+  background-color: #ffffff;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.page-number-btn:hover {
+  background-color: #f1f3f5;
+}
+.page-number-btn.active {
+  background-color: #111111;
+  color: #ffffff;
+  border-color: #111111;
+}
 
 /* 모달 컴포넌트 스타일 */
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
