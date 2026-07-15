@@ -1,32 +1,5 @@
 <template>
   <div class="page">
-    <!-- Top Nav -->
-    <header class="top-nav">
-      <div class="brand">
-        <span class="brand-icon">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" fill="currentColor"/><circle cx="12" cy="10" r="2.5" fill="#fff"/></svg>
-        </span>
-        <div class="brand-text">
-          <strong>LocalHub</strong>
-          <span>구미/경북 지역 정보 &amp; 커뮤니티</span>
-        </div>
-      </div>
-
-      <nav class="nav-tabs">
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          type="button"
-          class="nav-tab"
-          :class="{ active: activeTab === tab.key }"
-          @click="activeTab = tab.key"
-        >
-          <component :is="tab.icon" class="nav-tab-icon" />
-          {{ tab.label }}
-        </button>
-      </nav>
-    </header>
-
     <main class="content">
       <div class="content-header">
         <h1>캘린더</h1>
@@ -207,10 +180,6 @@
         </aside>
       </div>
     </main>
-
-    <button type="button" class="fab" aria-label="커뮤니티 채팅">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 1 1 3.2 6.4L4 20l1.3-3.6A7.96 7.96 0 0 1 4 12z" fill="currentColor"/></svg>
-    </button>
   </div>
 </template>
 
