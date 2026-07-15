@@ -19,7 +19,8 @@ const categoryLabels = {
   food: '맛집',
   cafe: '카페',
   festival: '축제',
-  stay: '숙박'
+  stay: '숙박',
+  activity: '액티비티'
 }
 
 const selectedPlace = ref(null)
@@ -78,7 +79,8 @@ const categories = [
   { id: 'food', label: '맛집' },
   { id: 'cafe', label: '카페' },
   { id: 'festival', label: '축제' },
-  { id: 'stay', label: '숙박' }
+  { id: 'stay', label: '숙박' },
+  { id: 'activity', label: '액티비티' }
 ]
 
 const inferRegionInfo = (place) => {
@@ -210,11 +212,40 @@ function mapTypeFromCats(place) {
     place.content_type_id ?? place.contentTypeId ?? place.contenttypeid
   )
 
-  if (/(카페|커피|cafe|coffee|디저트|베이커리|브런치)/.test(text)) return 'cafe'
-  if (contentTypeId === 39 || /(음식점|맛집|식당|한식|중식|일식|양식|분식|술집|주점|백반|국밥|치킨|피자)/.test(text)) return 'food'
-  if (/(축제|공연|행사)/.test(text)) return 'festival'
-  if (/(숙박|호텔|민박)/.test(text)) return 'stay'
-  if (contentTypeId === 12 || contentTypeId === 14 || contentTypeId === 15 || contentTypeId === 28 || /(관광|명소|레포츠|문화)/.test(text)) return 'tour'
+  if (/(카페|커피|cafe|coffee|디저트|베이커리|브런치)/.test(text)) {
+    return 'cafe'
+  }
+
+  if (
+    contentTypeId === 39 ||
+    /(음식점|맛집|식당|한식|중식|일식|양식|분식|술집|주점|백반|국밥|치킨|피자)/.test(text)
+  ) {
+    return 'food'
+  }
+
+  if (/(축제|공연|행사)/.test(text)) {
+    return 'festival'
+  }
+
+  if (/(숙박|호텔|민박)/.test(text)) {
+    return 'stay'
+  }
+
+  if (
+    /(레포츠|스포츠|운동|등산|트레킹|캠핑|자전거|골프|스키|수영|헬스|산책|야외활동)/.test(text)
+  ) {
+    return 'activity'
+  }
+
+  if (
+    contentTypeId === 12 ||
+    contentTypeId === 14 ||
+    contentTypeId === 15 ||
+    contentTypeId === 28 ||
+    /(관광|명소|문화)/.test(text)
+  ) {
+    return 'tour'
+  }
 
   return 'tour'
 }
