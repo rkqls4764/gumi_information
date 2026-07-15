@@ -31,7 +31,8 @@
       <!-- [1] 홈 탭 -->
       <template v-if="currentMenu === 'home'">
         <section class="left-section">
-          <CategorySelector />
+          <!-- 💡 [수정] CategorySelector 컴포넌트에 @submit 이벤트 리스너를 연동합니다 -->
+          <CategorySelector @submit="handleCategorySelection" />
         </section>
         <section class="right-section">
           <PostBoard />
@@ -79,6 +80,21 @@
           </div>
           <button class="chat-close-btn" @click="isChatOpen = false">✕</button>
         </div>
+
+        <!-- 🤖 [추가] 카테고리 셀렉터 칩 영역 -->
+        <div class="chat-category-bar">
+          <span class="category-bar-title">관심사 필터:</span>
+          <div class="category-chips">
+            <button 
+              v-for="cat in chatCategories" 
+              :key="cat.value"
+              :class="['category-chip', { active: selectedChatCategory === cat.value }]"
+              @click="toggleCategory(cat.value)"
+            >
+              {{ cat.icon }} {{ cat.label }}
+            </button>
+          </div>
+        </div>
         
         <!-- 대화 메세지 영역 -->
         <div class="chat-messages" ref="messageContainer">
@@ -92,7 +108,7 @@
           <input 
             v-model="userMessage" 
             type="text" 
-            placeholder="메세지를 입력하세요..." 
+            :placeholder="getInputPlaceholder" 
             required 
           />
           <button type="submit" :disabled="isBotLoading">전송</button>
@@ -110,7 +126,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, computed } from 'vue'
 import CategorySelector from './components/CategorySelector.vue'
 import PostBoard from './components/PostBoard.vue'
 import LocalInfoView from './views/LocalInfoView.vue'
@@ -131,6 +147,58 @@ const isChatOpen = ref(false)
 const userMessage = ref('')
 const isBotLoading = ref(false)
 const messageContainer = ref(null) // DOM 엘리먼트 참조용 ref
+
+// 🤖 [추가] 챗봇용 카테고리 상태 정의
+const selectedChatCategory = ref(null) // 기본값은 필터링 없음(null)
+const chatCategories = [
+  { label: '운동', value: '운동', icon: '💪' },
+  { label: '음식', value: '음식', icon: '🍕' },
+  { label: '여행', value: '여행', icon: '✈️' },
+  { label: '쇼핑', value: '쇼핑', icon: '🛍️' }
+]
+
+// 입력창 플레이스홀더 동적 변경
+const getInputPlaceholder = computed(() => {
+  if (selectedChatCategory.value) {
+    return `[${selectedChatCategory.value}] 관련 질문을 입력하세요...`
+  }
+  return "메시지를 입력하세요..."
+})
+
+// 💡 [추가 및 수정] 메인 화면 CategorySelector 완료 이벤트를 가로채 처리하는 함수
+const handleCategorySelection = (categoryTitle) => {
+  // 1. 전달받은 카테고리 값으로 필터 적용
+  selectedChatCategory.value = categoryTitle
+  
+  // 2. 챗봇 창 열기
+  isChatOpen.value = true
+  
+  // 3. 챗봇 가이드 메시지 누적
+  chatMessages.value.push({ 
+    sender: 'bot', 
+    text: `🎯 메인 화면에서 [${categoryTitle}] 카테고리를 설정하셨습니다! 이제 질문창에 찾으시는 내용을 입력하면 관련된 정보를 맞춤 추천해 드려요.` 
+  })
+  
+  scrollToBottom()
+}
+
+// 카테고리 필터 토글 함수
+const toggleCategory = (categoryValue) => {
+  if (selectedChatCategory.value === categoryValue) {
+    selectedChatCategory.value = null // 다시 누르면 필터 해제
+    chatMessages.value.push({ 
+      sender: 'bot', 
+      text: '카테고리 필터링이 해제되었습니다. 전체 데이터에서 정보를 찾습니다.' 
+    })
+  } else {
+    selectedChatCategory.value = categoryValue
+    chatMessages.value.push({ 
+      sender: 'bot', 
+      text: `🔔 [${categoryValue}] 카테고리가 지정되었습니다. 이제 질문하시면 데이터베이스의 ${categoryValue} 관련 정보를 바탕으로 추천을 드립니다.` 
+    })
+  }
+  scrollToBottom()
+}
 
 // 기본 웰컴 메시지 설정
 const chatMessages = ref([
@@ -156,14 +224,15 @@ const sendMessage = async () => {
   scrollToBottom()
 
   try {
-    // FastAPI 서버 주소로 API 호출
+    // 🤖 FastAPI 서버로 질문과 현재 선택된 카테고리를 함께 전송
     const response = await fetch('http://localhost:8000/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        message: inputMessage
+        message: inputMessage,
+        category: selectedChatCategory.value // 선택된 카테고리 정보 ("음식", "운동" 등 또는 null)
       })
     })
 
@@ -350,8 +419,8 @@ const sendMessage = async () => {
 }
 
 .chatbot-window {
-  width: 360px;
-  height: 480px;
+  width: 380px;
+  height: 520px;
   background-color: #ffffff;
   border-radius: 16px;
   border: 1px solid #e9ecef;
@@ -407,6 +476,52 @@ const sendMessage = async () => {
   opacity: 0.7;
 }
 .chat-close-btn:hover { opacity: 1; }
+
+/* 🤖 챗봇 내부 상단 카테고리 바 스타일 */
+.chat-category-bar {
+  background-color: #f1f3f5;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.category-bar-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #495057;
+}
+
+.category-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.category-chip {
+  background-color: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 20px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.category-chip:hover {
+  background-color: #f8f9fa;
+  border-color: #ced4da;
+}
+
+.category-chip.active {
+  background-color: #111111;
+  border-color: #111111;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
 
 .chat-messages {
   flex: 1;
@@ -500,7 +615,7 @@ const sendMessage = async () => {
   
   .chatbot-window {
     width: calc(100vw - 32px);
-    height: 400px;
+    height: 440px;
   }
 }
 </style>

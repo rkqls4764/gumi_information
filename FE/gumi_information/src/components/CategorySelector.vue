@@ -49,6 +49,9 @@ import foodImg from '../assets/food.png'
 import travelImg from '../assets/travel.png'
 import shoppingImg from '../assets/shopping.png'
 
+// 💡 [추가] 부모 컴포넌트로 데이터를 전송하기 위한 emit 정의
+const emit = defineEmits(['submit'])
+
 const categories = [
   { id: 'sports', title: '운동', tags: '헬스, 러닝, 등산 등', desc: '건강한 라이프스타일 정보를 받아보세요!', imgUrl: sportsImg },
   { id: 'food', title: '음식', tags: '맛집, 카페, 지역 먹거리 등', desc: '맛있는 정보를 받아보세요!', imgUrl: foodImg },
@@ -56,16 +59,12 @@ const categories = [
   { id: 'shopping', title: '쇼핑', tags: '지역 쇼핑 정보, 핫플, 특산물 등', desc: '쇼핑 정보를 받아보세요!', imgUrl: shoppingImg }
 ]
 
-// 💡 1개만 선택하므로 배열([]) 대신 초기값 null인 문자열/식별자 상태로 변경
 const selectedCategory = ref(null)
 
-// 💡 선택 토글 로직 수정
 const toggleCategory = (id) => {
   if (selectedCategory.value === id) {
-    // 이미 선택된 것을 다시 누르면 선택 해제
     selectedCategory.value = null
   } else {
-    // 다른 것을 누르면 해당 카테고리로 단일 교체
     selectedCategory.value = id
   }
 }
@@ -76,26 +75,25 @@ const submitSelection = () => {
     return
   }
   
-  // 현재 선택된 카테고리의 한글 타이틀 찾기
+  // 현재 선택된 카테고리의 한글 타이틀 찾기 (예: "운동")
   const targetCategory = categories.find(c => c.id === selectedCategory.value)
-  alert(`선택된 카테고리: ${targetCategory ? targetCategory.title : selectedCategory.value}`)
+  const categoryTitle = targetCategory ? targetCategory.title : selectedCategory.value
+  
+  // 💡 [수정] 알림창만 띄우는 대신, 부모(App.vue)로 'submit' 이벤트와 한글 카테고리명을 전달합니다.
+  emit('submit', categoryTitle)
 }
 </script>
 
 <style scoped>
-/* 
-  💡 [핵심 해결 방법]
-  외부 Flex/Grid 아이템 정렬로 인해 자식 높이가 강제로 늘어나는 현상을 차단합니다. 
-*/
 .category-panel-container {
   display: flex;
   flex-direction: column;
-  justify-content: flex-start; /* 아래로 늘어나지 않고 콘텐츠 시작 부분에 정렬되도록 고정 */
+  justify-content: flex-start;
   height: 100%;
 }
 
 .selector-wrap {
-  flex: 0 0 auto; /* 부모가 늘어나더라도 같이 늘어나지 마라(비활성화) */
+  flex: 0 0 auto;
 }
 
 .title-area {
@@ -128,7 +126,7 @@ const submitSelection = () => {
   user-select: none;
   display: flex;
   flex-direction: column;
-  height: auto; /* 불필요하게 카드가 늘어나는 부분 방지 */
+  height: auto;
 }
 .category-card:hover {
   border-color: #868e96;
@@ -189,10 +187,9 @@ const submitSelection = () => {
   margin: 0;
 }
 
-/* 💡 완료 버튼의 간격 유지 구조 설정 */
 .button-area {
   margin-top: 32px;
-  flex: 0 0 auto; /* 버튼 크기 및 상단 여백 고정 */
+  flex: 0 0 auto;
 }
 
 .submit-btn {
@@ -213,7 +210,6 @@ const submitSelection = () => {
   border-color: #111;
 }
 
-/* 📱 모바일 최적화: 한 화면에 4개가 다 보이도록 조절 */
 @media (max-width: 640px) {
   .title-area {
     margin-bottom: 16px;
@@ -226,17 +222,17 @@ const submitSelection = () => {
     margin-top: 4px;
   }
   .category-grid {
-    grid-template-columns: 1fr 1fr; /* 모바일에서도 2x2 유지 */
-    gap: 10px; /* 카드 간격 축소 */
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
   .card-image-wrapper {
-    height: 75px; /* 이미지 영역 대폭 축소 */
+    height: 75px;
   }
   .card-content {
-    padding: 10px 8px; /* 패딩 축소 */
+    padding: 10px 8px;
   }
   .card-title {
-    font-size: 14px; /* 글꼴 크기 축소 */
+    font-size: 14px;
     margin-bottom: 2px;
   }
   .card-tags {
@@ -244,7 +240,7 @@ const submitSelection = () => {
     margin-bottom: 4px;
   }
   .card-desc {
-    display: none; /* 설명글은 모바일에서 숨겨서 공간 확보 */
+    display: none;
   }
   .button-area {
     margin-top: 16px;
