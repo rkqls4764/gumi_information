@@ -233,7 +233,8 @@ async function fetchPlaces() {
       rating: '0.0',
       review: 0,
       lat,
-      lng
+      lng,
+      image: p.firstimage || p.firstimage2 || ''
     }
   })
   .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng))
@@ -320,26 +321,34 @@ watch(filteredPlaces, () => {
 
   <div v-else class="place-cards">
   <article
-    class="place-card"
-    v-for="place in displayedPlaces"
-    :key="place.id"
-  >
-    <div class="place-icon">🏙️</div>
+  class="place-card"
+  v-for="place in displayedPlaces"
+  :key="place.id"
+>
+  <div class="place-image-wrap">
+    <img
+      v-if="place.image"
+      :src="place.image"
+      :alt="place.name"
+      class="place-image"
+    />
+    <div v-else class="place-icon">🏙️</div>
+  </div>
 
-    <div class="place-info">
-      <strong>{{ place.name }}</strong>
-      <span>{{ place.region }}</span>
+  <div class="place-info">
+    <strong>{{ place.name }}</strong>
+    <span>{{ place.region }}</span>
+  </div>
+
+  <div class="place-meta">
+    <div class="place-rating">
+      <strong>★ {{ place.rating }}</strong>
+      <span>({{ place.review }})</span>
     </div>
 
-    <div class="place-meta">
-      <div class="place-rating">
-        <strong>★ {{ place.rating }}</strong>
-        <span>({{ place.review }})</span>
-      </div>
-
-      <button class="detail-button">상세보기</button>
-    </div>
-  </article>
+    <button class="detail-button">상세보기</button>
+  </div>
+</article>
 </div>
     </section>
 
@@ -365,13 +374,27 @@ button.selected { background: #111; color: #fff; border-color: #111; }
 .place-cards { display: grid; gap: 16px; }
 .place-card {
   display: grid;
-  grid-template-columns: 52px 1fr auto;
+  grid-template-columns: 72px 1fr auto;
   gap: 16px;
   align-items: center;
   padding: 18px 20px;
   border: 1px solid #e6e6e6;
   border-radius: 16px;
   background: #fff;
+}
+.place-image-wrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f3f4f6;
+  display: grid;
+  place-items: center;
+}
+.place-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .place-icon { width: 52px; height: 52px; border-radius: 16px; background: #f3f4f6; display: grid; place-items: center; font-size: 1.3rem; }
 .place-info strong { display: block; font-size: 1rem; margin-bottom: 4px; }
