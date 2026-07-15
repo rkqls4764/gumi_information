@@ -252,6 +252,7 @@ const setRegion = (id) => {
   activeRegion.value = id
 
   if (!map.value) return
+  if (id === 'all') return
 
   const center = regionCenters[id] || regionCenters.all
   map.value.flyTo(center, 13, { duration: 0.8 })
