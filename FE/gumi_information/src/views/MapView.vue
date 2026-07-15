@@ -23,6 +23,10 @@ const categoryLabels = {
 }
 
 const selectedPlace = ref(null)
+const reviewTargetPlace = ref(null)
+const reviewModalOpen = ref(false)
+const reviewDraft = ref(0)
+const reviewSubmitting = ref(false)
 
 const openPlaceDetail = (place) => {
   selectedPlace.value = place
@@ -30,6 +34,40 @@ const openPlaceDetail = (place) => {
 
 const closePlaceDetail = () => {
   selectedPlace.value = null
+}
+
+const openReviewModal = (place) => {
+  reviewTargetPlace.value = place
+  reviewDraft.value = 0
+  reviewModalOpen.value = true
+}
+
+const closeReviewModal = () => {
+  reviewModalOpen.value = false
+  reviewTargetPlace.value = null
+  reviewDraft.value = 0
+}
+
+const selectReviewScore = (score) => {
+  reviewDraft.value = Math.max(0, Math.min(10, score))
+}
+
+const selectHalfStar = (event, star) => {
+  const rect = event.currentTarget.getBoundingClientRect()
+  const x = event.clientX - rect.left
+
+  reviewDraft.value =
+    x < rect.width / 2
+      ? (star - 0.5) * 2
+      : star * 2
+}
+
+const getStarFill = (star) => {
+  const value = reviewDraft.value / 2
+
+  if (value >= star) return 100
+  if (value >= star - 0.5) return 50
+  return 0
 }
 
 const getTypeLabel = (type) => categoryLabels[type] || '기타'
@@ -45,56 +83,20 @@ const categories = [
 
 const inferRegionInfo = (place) => {
   const text = `${place.addr1 || ''} ${place.addr2 || ''} ${place.title || ''}`.toLowerCase()
-
-  if (text.includes('대구')) {
-    return { key: 'daegu', label: '대구광역시' }
-  }
-
-  if (text.includes('성주')) {
-    return { key: 'seongju', label: '성주군' }
-  }
-
-  if (text.includes('고령')) {
-    return { key: 'goryeong', label: '고령군' }
-  }
-
-  if (text.includes('김천')) {
-    return { key: 'kimcheon', label: '김천시' }
-  }
-
-  if (text.includes('칠곡')) {
-    return { key: 'chilgok', label: '칠곡군' }
-  }
-
-  if (text.includes('구미')) {
-    return { key: 'gumi', label: '구미시' }
-  }
+  if (text.includes('대구')) return { key: 'daegu', label: '대구광역시' }
+  if (text.includes('성주')) return { key: 'seongju', label: '성주군' }
+  if (text.includes('고령')) return { key: 'goryeong', label: '고령군' }
+  if (text.includes('김천')) return { key: 'kimcheon', label: '김천시' }
+  if (text.includes('칠곡')) return { key: 'chilgok', label: '칠곡군' }
+  if (text.includes('구미')) return { key: 'gumi', label: '구미시' }
 
   const areaCode = `${place.areacode || ''}`.toLowerCase()
-
-  if (areaCode.includes('daegu') || areaCode.includes('대구')) {
-    return { key: 'daegu', label: '대구광역시' }
-  }
-
-  if (areaCode.includes('seongju') || areaCode.includes('성주')) {
-    return { key: 'seongju', label: '성주군' }
-  }
-
-  if (areaCode.includes('goryeong') || areaCode.includes('고령')) {
-    return { key: 'goryeong', label: '고령군' }
-  }
-
-  if (areaCode.includes('kimcheon') || areaCode.includes('김천')) {
-    return { key: 'kimcheon', label: '김천시' }
-  }
-
-  if (areaCode.includes('chilgok') || areaCode.includes('칠곡')) {
-    return { key: 'chilgok', label: '칠곡군' }
-  }
-
-  if (areaCode.includes('gumi') || areaCode.includes('구미')) {
-    return { key: 'gumi', label: '구미시' }
-  }
+  if (areaCode.includes('daegu') || areaCode.includes('대구')) return { key: 'daegu', label: '대구광역시' }
+  if (areaCode.includes('seongju') || areaCode.includes('성주')) return { key: 'seongju', label: '성주군' }
+  if (areaCode.includes('goryeong') || areaCode.includes('고령')) return { key: 'goryeong', label: '고령군' }
+  if (areaCode.includes('kimcheon') || areaCode.includes('김천')) return { key: 'kimcheon', label: '김천시' }
+  if (areaCode.includes('chilgok') || areaCode.includes('칠곡')) return { key: 'chilgok', label: '칠곡군' }
+  if (areaCode.includes('gumi') || areaCode.includes('구미')) return { key: 'gumi', label: '구미시' }
 
   return null
 }
@@ -174,6 +176,21 @@ const goToPage = (page) => {
   currentPage.value = Math.max(1, Math.min(totalPages.value, page))
 }
 
+const getPlaceIdentifier = (place) => String(place?.content_id ?? place?.id ?? '')
+
+const getAverageRating = (reviews) => {
+  if (!Array.isArray(reviews) || reviews.length === 0) return 0
+  const total = reviews.reduce((sum, item) => sum + Number(item.rating || 0), 0)
+  return total / reviews.length
+}
+
+const formatAverageRating = (place) => {
+  const value = Number(place?.averageRating ?? place?.rating ?? 0)
+  return value.toFixed(1)
+}
+
+const getReviewCount = (place) => Number(place?.reviewCount ?? place?.review ?? 0)
+
 function mapTypeFromCats(place) {
   const text = [
     place.title || '',
@@ -193,34 +210,11 @@ function mapTypeFromCats(place) {
     place.content_type_id ?? place.contentTypeId ?? place.contenttypeid
   )
 
-  if (/(카페|커피|cafe|coffee|디저트|베이커리|브런치)/.test(text)) {
-    return 'cafe'
-  }
-
-  if (
-    contentTypeId === 39 ||
-    /(음식점|맛집|식당|한식|중식|일식|양식|분식|술집|주점|백반|국밥|치킨|피자)/.test(text)
-  ) {
-    return 'food'
-  }
-
-  if (/(축제|공연|행사)/.test(text)) {
-    return 'festival'
-  }
-
-  if (/(숙박|호텔|민박)/.test(text)) {
-    return 'stay'
-  }
-
-  if (
-    contentTypeId === 12 ||
-    contentTypeId === 14 ||
-    contentTypeId === 15 ||
-    contentTypeId === 28 ||
-    /(관광|명소|레포츠|문화)/.test(text)
-  ) {
-    return 'tour'
-  }
+  if (/(카페|커피|cafe|coffee|디저트|베이커리|브런치)/.test(text)) return 'cafe'
+  if (contentTypeId === 39 || /(음식점|맛집|식당|한식|중식|일식|양식|분식|술집|주점|백반|국밥|치킨|피자)/.test(text)) return 'food'
+  if (/(축제|공연|행사)/.test(text)) return 'festival'
+  if (/(숙박|호텔|민박)/.test(text)) return 'stay'
+  if (contentTypeId === 12 || contentTypeId === 14 || contentTypeId === 15 || contentTypeId === 28 || /(관광|명소|레포츠|문화)/.test(text)) return 'tour'
 
   return 'tour'
 }
@@ -248,6 +242,7 @@ const filteredPlaces = computed(() => {
 })
 
 const setCategory = (id) => { activeCategory.value = id }
+
 const setRegion = (id) => {
   activeRegion.value = id
 
@@ -264,78 +259,85 @@ const updateMarkers = () => {
   markerGroup.value.clearLayers()
 
   const visiblePlaces = filteredPlaces.value
+  const MAX_MARKERS = 100
+  const placesToShow = visiblePlaces.length > MAX_MARKERS ? visiblePlaces.slice(0, MAX_MARKERS) : visiblePlaces
 
-const MAX_MARKERS = 100
-
-const placesToShow =
-  visiblePlaces.length > MAX_MARKERS
-    ? visiblePlaces.slice(0, MAX_MARKERS)
-    : visiblePlaces
-
-console.log(
-  `현재 지도에 보이는 장소: ${visiblePlaces.length}개`
-)
-
-console.log(
-  `실제 표시되는 마커: ${placesToShow.length}개`
-)
-
-placesToShow.forEach(place => {
-  L.marker([place.lat, place.lng])
-    .bindPopup(`
-      <strong>${place.name}</strong><br/>
-      ${place.region || ''}
-    `)
-    .addTo(markerGroup.value)
-})
+  placesToShow.forEach(place => {
+    L.marker([place.lat, place.lng])
+      .bindPopup(`<strong>${place.name}</strong><br/>${place.region || ''}`)
+      .addTo(markerGroup.value)
+  })
 }
 
 const initMap = () => {
   map.value = L.map('map').setView(regionCenters.all, 13)
 
-  L.tileLayer(
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {
-      attribution: '&copy; OpenStreetMap contributors'
-    }
-  ).addTo(map.value)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map.value)
 
   markerGroup.value = L.layerGroup().addTo(map.value)
-
   mapBounds.value = map.value.getBounds()
 
   map.value.on('moveend zoomend', () => {
-  mapBounds.value = map.value.getBounds()
+    mapBounds.value = map.value.getBounds()
+    updateMarkers()
+  })
+}
 
-  console.log(
-    '현재 지도 범위 내 장소:',
-    filteredPlaces.value.length
-  )
+const syncPlaceReviewState = (place, reviews) => {
+  const identifier = getPlaceIdentifier(place)
+  const index = places.value.findIndex(item => getPlaceIdentifier(item) === identifier)
+  if (index === -1) return
 
-  updateMarkers()
-})
+  const average = getAverageRating(reviews)
+  const nextValue = {
+    ...places.value[index],
+    reviews,
+    reviewCount: reviews.length,
+    averageRating: average,
+    rating: average.toFixed(1),
+    review: reviews.length
+  }
+
+  places.value[index] = nextValue
+
+  if (selectedPlace.value && getPlaceIdentifier(selectedPlace.value) === identifier) {
+    selectedPlace.value = nextValue
+  }
+
+  if (reviewTargetPlace.value && getPlaceIdentifier(reviewTargetPlace.value) === identifier) {
+    reviewTargetPlace.value = nextValue
+  }
+}
+
+const loadReviewsForPlace = async (place) => {
+  const identifier = getPlaceIdentifier(place)
+  if (!identifier) return
+
+  try {
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+    const res = await fetch(`${API_BASE}/places/${identifier}/reviews`)
+    if (!res.ok) throw new Error(`리뷰 조회 실패: ${res.status}`)
+
+    const reviews = await res.json()
+    syncPlaceReviewState(place, reviews)
+  } catch (err) {
+    console.error('리뷰 조회 실패', err)
+  }
+}
+
+const loadReviewsForPlaces = async () => {
+  if (!places.value.length) return
+  await Promise.all(places.value.map(place => loadReviewsForPlace(place)))
 }
 
 async function fetchPlaces() {
   try {
-    const API_BASE =
-      import.meta.env.VITE_API_BASE || 'http://localhost:8000'
-
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
     const url = `${API_BASE}/places`
 
-    console.log('API_BASE =', API_BASE)
-    console.log('요청 URL =', url)
-
     const res = await fetch(url)
-
-    console.log(
-      'fetch response:',
-      res.status,
-      res.statusText,
-      'ok=',
-      res.ok
-    )
-
     if (!res.ok) {
       const txt = await res.text()
       console.error('places fetch failed status', res.status, txt)
@@ -344,89 +346,89 @@ async function fetchPlaces() {
 
     const data = await res.json()
 
-    console.log(
-      'places payload length:',
-      Array.isArray(data) ? data.length : 'not-array'
-    )
+    places.value = data
+      .map(p => {
+        const lat =
+          p.mapy !== null && p.mapy !== undefined && p.mapy !== ''
+            ? Number(p.mapy)
+            : null
+        const lng =
+          p.mapx !== null && p.mapx !== undefined && p.mapx !== ''
+            ? Number(p.mapx)
+            : null
 
-    console.table(data.slice(0, 10))
+        const type = mapTypeFromCats({
+          ...p,
+          content_type_id: p.content_type_id ?? p.contenttypeid,
+          title: p.title || '',
+          addr1: p.addr1 || '',
+          addr2: p.addr2 || '',
+          cat1: p.cat1 || '',
+          cat2: p.cat2 || '',
+          cat3: p.cat3 || '',
+          lcls_systm1: p.lcls_systm1 || '',
+          lcls_systm2: p.lcls_systm2 || '',
+          lcls_systm3: p.lcls_systm3 || ''
+        })
 
-   places.value = data
-  .map(p => {
-    const lat =
-      p.mapy !== null && p.mapy !== undefined && p.mapy !== ''
-        ? Number(p.mapy)
-        : null
-    const lng =
-      p.mapx !== null && p.mapx !== undefined && p.mapx !== ''
-        ? Number(p.mapx)
-        : null
+        const regionInfo = inferRegionInfo({
+          addr1: p.addr1 || '',
+          addr2: p.addr2 || '',
+          title: p.title || '',
+          areacode: p.areacode || ''
+        })
 
-    const type = mapTypeFromCats({
-      ...p,
-      content_type_id: p.content_type_id ?? p.contenttypeid,
-      title: p.title || '',
-      addr1: p.addr1 || '',
-      addr2: p.addr2 || '',
-      cat1: p.cat1 || '',
-      cat2: p.cat2 || '',
-      cat3: p.cat3 || '',
-      lcls_systm1: p.lcls_systm1 || '',
-      lcls_systm2: p.lcls_systm2 || '',
-      lcls_systm3: p.lcls_systm3 || ''
-    })
+        return {
+          ...p,
+          id: p.id ?? p.content_id ?? null,
+          name: p.title || '',
+          region: p.addr1 || '',
+          address: p.addr1 || p.addr2 || '',
+          type,
+          area: p.areacode || '',
+          regionKey: regionInfo?.key || null,
+          regionLabel: regionInfo?.label || '',
+          rating: '0.0',
+          review: 0,
+          lat,
+          lng,
+          image: p.firstimage || p.firstimage2 || ''
+        }
+      })
+      .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng))
 
-    const regionInfo = inferRegionInfo({
-      addr1: p.addr1 || '',
-      addr2: p.addr2 || '',
-      title: p.title || '',
-      areacode: p.areacode || ''
-    })
-
-return {
-  ...p,
-  id: p.id ?? p.content_id ?? null,
-  name: p.title || '',
-  region: p.addr1 || '',
-  address: p.addr1 || p.addr2 || '',
-  type,
-  area: p.areacode || '',
-  regionKey: regionInfo?.key || null,
-  regionLabel: regionInfo?.label || '',
-  rating: '0.0',
-  review: 0,
-  lat,
-  lng,
-  image: p.firstimage || p.firstimage2 || ''
+      await loadReviewsForPlaces()
+      mapBounds.value = map.value.getBounds()
+      updateMarkers()
+    } catch (err) {
+      console.error('fetchPlaces error', err)
+    }
 }
-  })
-  .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng))
 
-console.log(
-  'places after filter:',
-  places.value.length
-)
+const submitReview = async () => {
+  if (!reviewTargetPlace.value) return
 
-mapBounds.value = map.value.getBounds()
+  const rating = Number(reviewDraft.value)
+  if (!Number.isFinite(rating) || rating < 0 || rating > 10) return
 
-console.log(
-  '초기 지도 범위 내 장소 수:',
-  filteredPlaces.value.length
-)
+  reviewSubmitting.value = true
 
-updateMarkers()
+  try {
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+    const placeId = getPlaceIdentifier(reviewTargetPlace.value)
+    const res = await fetch(`${API_BASE}/places/${placeId}/reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating })
+    })
 
-updateMarkers()
-console.log(
-  '현재 지도 범위',
-  mapBounds.value?.toBBoxString()
-)
-console.log(
-  '현재 지도 범위',
-  mapBounds.value?.toBBoxString()
-)
+    if (!res.ok) throw new Error(`리뷰 저장 실패: ${res.status}`)
+    await loadReviewsForPlace(reviewTargetPlace.value)
+    closeReviewModal()
   } catch (err) {
-    console.error('fetchPlaces error', err)
+    console.error('리뷰 저장 실패', err)
+  } finally {
+    reviewSubmitting.value = false
   }
 }
 
@@ -435,18 +437,11 @@ onMounted(() => {
   fetchPlaces()
 })
 
-watch(
-  regions,
-  (nextRegions) => {
-    if (
-      activeRegion.value !== 'all' &&
-      !nextRegions.some(item => item.id === activeRegion.value)
-    ) {
-      activeRegion.value = 'all'
-    }
-  },
-  { immediate: true }
-)
+watch(regions, (nextRegions) => {
+  if (activeRegion.value !== 'all' && !nextRegions.some(item => item.id === activeRegion.value)) {
+    activeRegion.value = 'all'
+  }
+}, { immediate: true })
 
 watch(filteredPlaces, () => {
   currentPage.value = 1
@@ -468,7 +463,9 @@ watch(filteredPlaces, () => {
           :key="item.id"
           :class="{ selected: activeCategory === item.id }"
           @click="setCategory(item.id)"
-        >{{ item.label }}</button>
+        >
+          {{ item.label }}
+        </button>
       </div>
 
       <div class="filter-row">
@@ -478,7 +475,9 @@ watch(filteredPlaces, () => {
           :key="item.id"
           :class="{ selected: activeRegion === item.id }"
           @click="setRegion(item.id)"
-        >{{ item.label }}</button>
+        >
+          {{ item.label }}
+        </button>
       </div>
     </div>
 
@@ -490,112 +489,131 @@ watch(filteredPlaces, () => {
     </div>
 
     <section class="place-list">
-  <h3>지도 내 장소 목록</h3>
+      <h3>지도 내 장소 목록</h3>
 
-  <div v-if="filteredPlaces.length === 0" class="empty-message">
-    현재 지도 범위에 표시할 장소가 없습니다.
-  </div>
+      <div v-if="filteredPlaces.length === 0" class="empty-message">
+        현재 지도 범위에 표시할 장소가 없습니다.
+      </div>
 
-  <div v-else class="place-cards">
-  <article
-  class="place-card"
-  v-for="place in displayedPlaces"
-  :key="place.id"
->
-  <div class="place-image-wrap">
-    <img
-      v-if="place.image"
-      :src="place.image"
-      :alt="place.name"
-      class="place-image"
-    />
-    <div v-else class="place-icon">🏙️</div>
-  </div>
+      <div v-else class="place-cards">
+        <article class="place-card" v-for="place in displayedPlaces" :key="place.id">
+          <div class="place-image-wrap">
+            <img v-if="place.image" :src="place.image" :alt="place.name" class="place-image" />
+            <div v-else class="place-icon">🏙️</div>
+          </div>
 
-  <div class="place-info">
-    <strong>{{ place.name }}</strong>
-    <span>{{ place.region }}</span>
-  </div>
+          <div class="place-info">
+            <strong>{{ place.name }}</strong>
+            <span>{{ place.region }}</span>
+          </div>
 
-  <div class="place-meta">
-    <div class="place-rating">
-      <strong>★ {{ place.rating }}</strong>
-      <span>({{ place.review }})</span>
-    </div>
+          <div class="place-meta">
+            <div class="place-rating">
+              <strong>★ {{ formatAverageRating(place) }}</strong>
+              <span>({{ getReviewCount(place) }}명)</span>
+            </div>
 
-    <button class="detail-button" type="button" @click="openPlaceDetail(place)">
-  상세보기
-</button>
-  </div>
-</article>
-</div>
+            <div class="place-actions">
+              <button class="detail-button" type="button" @click="openPlaceDetail(place)">
+                상세보기
+              </button>
+              <button class="review-button" type="button" @click="openReviewModal(place)">
+                리뷰 작성
+              </button>
+            </div>
+          </div>
+        </article>
+      </div>
     </section>
 
     <div v-if="filteredPlaces.length > 0" class="pagination">
-  <button
-    class="page-nav"
-    type="button"
-    :disabled="currentPage === 1"
-    @click="goToPage(currentPage - 1)"
-  >
-    이전
-  </button>
+      <button class="page-nav" type="button" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">
+        이전
+      </button>
 
-  <div class="page-numbers">
-    <button
-      v-for="page in pageWindow"
-      :key="page"
-      class="page-number"
-      :class="{ selected: currentPage === page, ellipsis: page === '...' }"
-      type="button"
-      @click="goToPage(page)"
-    >
-      {{ page }}
-    </button>
-  </div>
+      <div class="page-numbers">
+        <button
+          v-for="page in pageWindow"
+          :key="page"
+          class="page-number"
+          :class="{ selected: currentPage === page, ellipsis: page === '...' }"
+          type="button"
+          @click="goToPage(page)"
+        >
+          {{ page }}
+        </button>
+      </div>
 
-  <button
-    class="page-nav"
-    type="button"
-    :disabled="currentPage === totalPages"
-    @click="goToPage(currentPage + 1)"
-  >
-    다음
-  </button>
-</div>
+      <button class="page-nav" type="button" :disabled="currentPage === totalPages" @click="goToPage(currentPage + 1)">
+        다음
+      </button>
+    </div>
 
     <button class="current-location-button" type="button">
       현재 위치로 이동
     </button>
 
     <div v-if="selectedPlace" class="detail-modal-overlay" @click.self="closePlaceDetail">
-  <div class="detail-modal">
-    <button class="detail-modal-close" type="button" @click="closePlaceDetail">×</button>
+      <div class="detail-modal">
+        <button class="detail-modal-close" type="button" @click="closePlaceDetail">×</button>
 
-    <div class="detail-modal-content">
-      <div class="detail-modal-image-wrap">
-        <img
-          v-if="selectedPlace.image"
-          :src="selectedPlace.image"
-          :alt="selectedPlace.name"
-          class="detail-modal-image"
-        />
-        <div v-else class="detail-modal-image-placeholder">🏙️</div>
-      </div>
+        <div class="detail-modal-content">
+          <div class="detail-modal-image-wrap">
+            <img v-if="selectedPlace.image" :src="selectedPlace.image" :alt="selectedPlace.name" class="detail-modal-image" />
+            <div v-else class="detail-modal-image-placeholder">🏙️</div>
+          </div>
 
-      <div class="detail-modal-info">
-        <span class="detail-chip">{{ getTypeLabel(selectedPlace.type) }}</span>
-        <h3>{{ selectedPlace.name }}</h3>
-        <p class="detail-address">{{ selectedPlace.address || selectedPlace.region }}</p>
+          <div class="detail-modal-info">
+            <span class="detail-chip">{{ getTypeLabel(selectedPlace.type) }}</span>
+            <h3>{{ selectedPlace.name }}</h3>
+            <p class="detail-address">{{ selectedPlace.address || selectedPlace.region }}</p>
 
-        <div class="detail-meta-row">
-          <span>평점: ★ {{ selectedPlace.rating }}</span>
-          <span>리뷰: {{ selectedPlace.review }}</span>
+            <div class="detail-meta-row">
+              <span>평점: ★ {{ formatAverageRating(selectedPlace) }}</span>
+              <span>리뷰수: {{ getReviewCount(selectedPlace) }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
+
+    <div v-if="reviewModalOpen && reviewTargetPlace" class="detail-modal-overlay" @click.self="closeReviewModal">
+      <div class="detail-modal review-modal">
+        <button class="detail-modal-close" type="button" @click="closeReviewModal">×</button>
+
+        <div class="review-modal-body">
+          <h3>{{ reviewTargetPlace.name }}</h3>
+          <p class="detail-address">0~10점까지 별점으로 입력할 수 있습니다.</p>
+
+          <div class="review-stars">
+            <div
+              v-for="star in 5"
+              :key="star"
+              class="star-wrapper"
+              @click="selectHalfStar($event, star)"
+            >
+              <span class="star-empty">★</span>
+
+              <span
+                class="star-filled"
+                :style="{ width: getStarFill(star) + '%' }"
+              >
+                ★
+              </span>
+            </div>
+          </div>
+
+          <div class="review-score-text">선택한 점수: {{ reviewDraft }}/10</div>
+
+          <div class="review-actions">
+            <button class="review-submit" type="button" :disabled="reviewSubmitting" @click="submitReview">
+              {{ reviewSubmitting ? '저장 중...' : '리뷰 저장' }}
+            </button>
+            <button class="ghost-button" type="button" @click="closeReviewModal">취소</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -778,5 +796,113 @@ button.selected { background: #111; color: #fff; border-color: #111; }
   background: transparent;
   cursor: default;
   pointer-events: none;
+}
+.place-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.detail-button,
+.review-button,
+.review-submit,
+.ghost-button {
+  white-space: nowrap;
+  padding: 8px 12px;
+}
+
+.review-button,
+.review-submit {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.review-modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 28px;
+  padding: 24px 0;
+}
+
+.review-modal-body h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.4;
+}
+
+.review-modal-body .detail-address {
+  margin: 0;
+  color: #6b7280;
+  font-size: 1rem;
+}
+
+.review-stars {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.star-wrapper {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  font-size: 40px;
+  line-height: 1;
+}
+.detail-modal.review-modal {
+  width: min(560px, 95%);
+}
+
+.star-empty {
+  color: #d1d5db;
+}
+
+.star-filled {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  color: #f59e0b;
+  white-space: nowrap;
+}
+
+.rating-star-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  display: grid;
+  place-items: center;
+  color: #d1d5db;
+}
+
+.rating-star-button.filled {
+  color: #f59e0b;
+  background: #fff7e6;
+  border-color: #f59e0b;
+}
+
+.review-score-text {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.review-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.ghost-button {
+  background: #f3f4f6;
+  color: #111;
+  border-color: #d1d5db;
 }
 </style>

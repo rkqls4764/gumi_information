@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional, List
 from fastapi import FastAPI, Depends, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,6 +56,16 @@ class Place(Base):
     modifiedtime = Column(String)
     source_region = Column(String)
 
+class PlaceReview(Base):
+    __tablename__ = "place_reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    place_content_id = Column(String, index=True, nullable=False)
+    rating = Column(Float, nullable=False)
+    created_at = Column(
+        String,
+        default=lambda: datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    )
 
 # ==========================================
 # 1-1. 축제 상세정보 데이터 모델 (신규 추가)
@@ -128,6 +139,18 @@ class PostResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        
+class PlaceReviewCreate(BaseModel):
+    rating: float
+
+class PlaceReviewResponse(BaseModel):
+    id: int
+    place_content_id: str
+    rating: float
+    created_at: str
+
+    class Config:
+        from_attributes = True
 
 # ==========================================
 # 4. FastAPI 앱 설정 및 CORS
@@ -182,6 +205,35 @@ def get_place(content_id: str, db: Session = Depends(get_db)):
     if not place: return {"detail": "not found"}
     return place_to_dict(place)
 
+@app.get("/places/{content_id}/reviews")
+def list_place_reviews(content_id: str, db: Session = Depends(get_db)):
+    reviews = (
+        db.query(PlaceReview)
+        .filter(PlaceReview.place_content_id == content_id)
+        .order_by(PlaceReview.id.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": review.id,
+            "place_content_id": review.place_content_id,
+            "rating": review.rating,
+            "created_at": review.created_at,
+        }
+        for review in reviews
+    ]
+
+@app.post("/places/{content_id}/reviews", response_model=PlaceReviewResponse)
+def create_place_review(content_id: str, review_data: PlaceReviewCreate, db: Session = Depends(get_db)):
+    if review_data.rating < 0 or review_data.rating > 10:
+        raise HTTPException(status_code=400, detail="리뷰 평점은 0~10 사이여야 합니다.")
+
+    review = PlaceReview(place_content_id=content_id, rating=review_data.rating)
+    db.add(review)
+    db.commit()
+    db.refresh(review)
+    return review
 
 # ------------------------------------------
 # 축제 캘린더 API 엔드포인트
