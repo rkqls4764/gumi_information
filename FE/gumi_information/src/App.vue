@@ -38,7 +38,7 @@
         </section>
       </template>
 
-<!-- [2] 💡 캘린더 탭 -->
+      <!-- [2] 💡 캘린더 탭 -->
       <template v-else-if="currentMenu === 'local-info'">
         <section class="full-section">
           <LocalInfoView />
@@ -95,7 +95,7 @@
             placeholder="메세지를 입력하세요..." 
             required 
           />
-          <button type="submit">전송</button>
+          <button type="submit" :disabled="isBotLoading">전송</button>
         </form>
       </div>
 
@@ -116,24 +116,28 @@ import PostBoard from './components/PostBoard.vue'
 import LocalInfoView from './views/LocalInfoView.vue'
 import MapView from './views/MapView.vue'
 
+// 탭 메뉴 설정
 const currentMenu = ref('home')
 
 const menus = [
   { id: 'home', name: '홈', icon: '🏠' },
-  { id: 'local-info', name: '캘린더', icon: '📅' }, // 💡 'info' -> 'calendar' 로 명칭 및 아이콘 수정
+  { id: 'local-info', name: '캘린더', icon: '📅' },
   { id: 'map', name: '지도', icon: '📍' },
   { id: 'community', name: '커뮤니티', icon: '💬' }
 ]
 
-// 🤖 챗봇 상태 및 로직 변수들
+// 🤖 챗봇 상태 및 로직 변수들 선언
 const isChatOpen = ref(false)
 const userMessage = ref('')
-const messageContainer = ref(null)
+const isBotLoading = ref(false)
+const messageContainer = ref(null) // DOM 엘리먼트 참조용 ref
+
+// 기본 웰컴 메시지 설정
 const chatMessages = ref([
-  { sender: 'bot', text: '안녕하세요! 구미/경북 로컬 허브 도우미봇입니다. 무엇을 도와드릴까요? ✨' }
+  { sender: 'bot', text: '안녕하세요! LocalHub 가이드 챗봇입니다. 구미/경북 지역에 대해 궁금한 점이 있으신가요?' }
 ])
 
-// 스크롤 아래로 내리는 헬퍼 함수
+// 스크롤 아래로 내리는 함수
 const scrollToBottom = async () => {
   await nextTick()
   if (messageContainer.value) {
@@ -141,22 +145,47 @@ const scrollToBottom = async () => {
   }
 }
 
-// 사용자 메시지 전송 및 자동 앵무새 답변
-const sendMessage = () => {
-  if (!userMessage.value.trim()) return
+// 챗봇 메시지 전송 로직
+const sendMessage = async () => {
+  if (!userMessage.value.trim() || isBotLoading.value) return
 
-  chatMessages.value.push({ sender: 'user', text: userMessage.value })
-  const savedMsg = userMessage.value
+  const inputMessage = userMessage.value
+  chatMessages.value.push({ sender: 'user', text: inputMessage })
   userMessage.value = ''
+  isBotLoading.value = true
   scrollToBottom()
 
-  setTimeout(() => {
+  try {
+    // FastAPI 서버 주소로 API 호출
+    const response = await fetch('http://localhost:8000/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: inputMessage
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const data = await response.json()
+    
+    // 백엔드가 반환한 {"reply": "..."} 값을 화면에 출력
+    chatMessages.value.push({ sender: 'bot', text: data.reply })
+    
+  } catch (error) {
+    console.error('API 통신 에러 발생:', error)
     chatMessages.value.push({ 
       sender: 'bot', 
-      text: `📢 "${savedMsg}"라고 말씀하셨군요! 현재 AI 챗봇 기능을 고도화 중입니다. 조금만 기다려 주세요!` 
+      text: '죄송합니다. 시스템에 일시적인 오류가 발생하여 답변을 생성하지 못했습니다.' 
     })
+  } finally {
+    isBotLoading.value = false
     scrollToBottom()
-  }, 800)
+  }
 }
 </script>
 
@@ -440,6 +469,11 @@ const sendMessage = () => {
   border-radius: 8px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.chat-input-form button:disabled {
+  background-color: #868e96;
+  cursor: not-allowed;
 }
 
 @media (max-width: 1024px) {

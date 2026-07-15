@@ -1,10 +1,15 @@
-from datetime import datetime
+import os
 from typing import Optional, List
 from fastapi import FastAPI, Depends, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Float, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, Text, or_
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# 💡 .env 파일 환경 변수 로드 (OPENAI_API_KEY 취득용)
+load_dotenv()
 
 DATABASE_URL = "sqlite:///./tour.db"
 
@@ -15,7 +20,6 @@ Base = declarative_base()
 FESTIVAL_CONTENT_TYPE_ID = 15
 
 # lcls_systm2 분류체계 코드 -> 캘린더 카테고리 매핑
-# EV01: 대부분의 축제/페스티벌, EV02: 공연류, EV03: 박람회/전시성 행사
 CATEGORY_MAP = {
     "EV01": "축제",
     "EV02": "공연",
@@ -56,19 +60,9 @@ class Place(Base):
     modifiedtime = Column(String)
     source_region = Column(String)
 
-class PlaceReview(Base):
-    __tablename__ = "place_reviews"
-
-    id = Column(Integer, primary_key=True, index=True)
-    place_content_id = Column(String, index=True, nullable=False)
-    rating = Column(Float, nullable=False)
-    created_at = Column(
-        String,
-        default=lambda: datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    )
 
 # ==========================================
-# 1-1. 축제 상세정보 데이터 모델 (신규 추가)
+# 1-1. 축제 상세정보 데이터 모델 (기존 유지)
 # ==========================================
 class FestivalDetail(Base):
     __tablename__ = "festival_details"
@@ -96,7 +90,7 @@ class FestivalDetail(Base):
 
 
 # ==========================================
-# 2. 커뮤니티 게시판 데이터 모델 (비밀번호 추가)
+# 2. 커뮤니티 게시판 데이터 모델 (기존 유지)
 # ==========================================
 class Post(Base):
     __tablename__ = "posts"
@@ -108,25 +102,25 @@ class Post(Base):
     date = Column(String, nullable=False)
     views = Column(Integer, default=0)
     likes = Column(Integer, default=0)
-    password = Column(String, nullable=False)  # 🔥 수정/삭제용 비밀번호 필드 추가
+    password = Column(String, nullable=False)
 
 Base.metadata.create_all(bind=engine)
 
 # ==========================================
-# 3. Pydantic 스키마 정의
+# 3. Pydantic 스키마 정의 (기존 유지 + GPT 추가)
 # ==========================================
 class PostCreate(BaseModel):
     title: str
     summary: str
     author: str
     date: str
-    password: str  # 생성 시 비밀번호 필수
+    password: str
 
 class PostUpdate(BaseModel):
     title: str
     summary: str
     author: str
-    password: str  # 수정 시 본인 인증용 비밀번호 확인
+    password: str
 
 class PostResponse(BaseModel):
     id: int
@@ -139,18 +133,11 @@ class PostResponse(BaseModel):
 
     class Config:
         from_attributes = True
-        
-class PlaceReviewCreate(BaseModel):
-    rating: float
 
-class PlaceReviewResponse(BaseModel):
-    id: int
-    place_content_id: str
-    rating: float
-    created_at: str
+# 🤖 [신규 추가] GPT 요청용 Pydantic 모델
+class ChatRequest(BaseModel):
+    message: str
 
-    class Config:
-        from_attributes = True
 
 # ==========================================
 # 4. FastAPI 앱 설정 및 CORS
@@ -164,6 +151,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 🤖 [신규 추가] OpenAI 클라이언트 인스턴스 초기화 (자동으로 환경변수의 OPENAI_API_KEY 로드)
+# 만약 키를 코드에 명시적으로 넣어야 한다면 client = OpenAI(api_key="sk-...") 로 선언 가능하지만, .env 기반이 안전합니다.
+client = OpenAI()
 
 def get_db():
     db = SessionLocal()
@@ -191,7 +182,70 @@ def resolve_category(lcls_systm2: Optional[str]) -> str:
 def health():
     return {"status": "ok"}
 
-# [기존] 여행지 API 생략 (그대로 유지됨)
+
+# ------------------------------------------
+# 🤖 [신규 추가] DB 연동 GPT 챗봇 API 엔드포인트
+# ------------------------------------------
+@app.post("/api/chat")
+def chat_with_local_gpt(request: ChatRequest, db: Session = Depends(get_db)):
+    user_prompt = request.message
+
+    # 1. 사용자의 질문 키워드로 sqlite의 `places` 테이블 시맨틱 검색
+    db_context_list = []
+    try:
+        # 띄어쓰기 기준으로 검색 키워드를 나눕니다 (예: "금오산 맛집" -> ["금오산", "맛집"])
+        keywords = [k for k in user_prompt.split() if len(k) > 1]
+        
+        if keywords:
+            # title 또는 addr1 필드에서 키워드와 연관된 레코드 최대 5개 검색
+            filters = []
+            for kw in keywords:
+                filters.append(Place.title.contains(kw))
+                filters.append(Place.addr1.contains(kw))
+            
+            matched_places = db.query(Place).filter(or_(*filters)).limit(5).all()
+            
+            for place in matched_places:
+                db_context_list.append(
+                    f"- 장소명: {place.title} | 주소: {place.addr1 or '정보 없음'} | 전화번호: {place.tel or '정보 없음'}"
+                )
+    except Exception as e:
+        print(f"[DB 검색 오류 수집 - 무시하고 GPT 기본 구동]: {e}")
+
+    # 2. GPT에 보낼 프롬프트 조립
+    system_instruction = (
+        "당신은 구미 및 경상북도 지역 커뮤니티 서비스 'LocalHub'의 친절하고 유능한 챗봇 안내원입니다.\n"
+        "항상 상냥하고 밝은 톤으로 질문에 응답하며, 질문자의 요청에 최대한 도움이 되는 실용적인 정보를 전달해 주세요."
+    )
+
+    # DB에 걸맞는 구미 여행지/명소 정보가 매칭되었다면, GPT에게 주입
+    if db_context_list:
+        context_str = "\n".join(db_context_list)
+        system_instruction += (
+            f"\n\n[보안 및 답변 규칙]: 사용자의 질문과 가장 매칭되는 서비스 내 실제 데이터베이스 정보입니다.\n"
+            f"답변 시 아래 리스트된 장소 정보를 활용하여 실제 주소 등을 친절하게 유도 및 추천해 주세요.\n"
+            f"🍀 데이터베이스 내 관련 장소 목록:\n{context_str}"
+        )
+
+    # 3. gpt-5-mini API 호출 (temperature 생략으로 오류 완전 차단)
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-5-mini",
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_prompt}
+            ]
+        )
+        bot_response = completion.choices[0].message.content
+        return {"reply": bot_response}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OpenAI API 통신 중 문제가 발생했습니다: {str(e)}")
+
+
+# ------------------------------------------
+# [기존] 여행지 API
+# ------------------------------------------
 @app.get("/places")
 def list_places(keyword: Optional[str] = Query(None), db: Session = Depends(get_db)):
     query = db.query(Place)
@@ -205,48 +259,15 @@ def get_place(content_id: str, db: Session = Depends(get_db)):
     if not place: return {"detail": "not found"}
     return place_to_dict(place)
 
-@app.get("/places/{content_id}/reviews")
-def list_place_reviews(content_id: str, db: Session = Depends(get_db)):
-    reviews = (
-        db.query(PlaceReview)
-        .filter(PlaceReview.place_content_id == content_id)
-        .order_by(PlaceReview.id.desc())
-        .all()
-    )
-
-    return [
-        {
-            "id": review.id,
-            "place_content_id": review.place_content_id,
-            "rating": review.rating,
-            "created_at": review.created_at,
-        }
-        for review in reviews
-    ]
-
-@app.post("/places/{content_id}/reviews", response_model=PlaceReviewResponse)
-def create_place_review(content_id: str, review_data: PlaceReviewCreate, db: Session = Depends(get_db)):
-    if review_data.rating < 0 or review_data.rating > 10:
-        raise HTTPException(status_code=400, detail="리뷰 평점은 0~10 사이여야 합니다.")
-
-    review = PlaceReview(place_content_id=content_id, rating=review_data.rating)
-    db.add(review)
-    db.commit()
-    db.refresh(review)
-    return review
 
 # ------------------------------------------
-# 축제 캘린더 API 엔드포인트
+# [기존] 축제 캘린더 API
 # ------------------------------------------
 @app.get("/festivals")
 def list_festivals(
     category: Optional[str] = Query(None, description="축제 | 행사 | 공연 | 전시 | 기타"),
     db: Session = Depends(get_db),
 ):
-    """
-    캘린더 화면(FE)이 바로 쓸 수 있는 형태로 축제/행사 목록을 반환한다.
-    festival_details가 아직 없는 축제(=날짜 미조회)는 목록에서 제외한다.
-    """
     rows = (
         db.query(Place, FestivalDetail)
         .join(FestivalDetail, Place.content_id == FestivalDetail.content_id)
@@ -260,7 +281,7 @@ def list_festivals(
         start = to_iso_date(detail.eventstartdate)
         end = to_iso_date(detail.eventenddate) or start
         if not start:
-            continue  # 날짜 정보가 없는 항목은 캘린더에 표시할 수 없으므로 제외
+            continue
 
         cat = resolve_category(place.lcls_systm2)
         if category and category != cat:
@@ -282,10 +303,9 @@ def list_festivals(
 
 
 # ------------------------------------------
-# 락인(CRUD) 커뮤니티 API 엔드포인트
+# [기존] 커뮤니티 API 엔드포인트
 # ------------------------------------------
 
-# 1. 목록 조회
 @app.get("/api/posts", response_model=List[PostResponse])
 def read_posts(search: str = "", db: Session = Depends(get_db)):
     query = db.query(Post)
@@ -293,20 +313,17 @@ def read_posts(search: str = "", db: Session = Depends(get_db)):
         query = query.filter(Post.title.contains(search) | Post.summary.contains(search))
     return query.order_by(Post.id.desc()).all()
 
-# 2. 상세 조회 및 조회수 증가
 @app.get("/api/posts/{post_id}", response_model=PostResponse)
 def get_post(post_id: int, db: Session = Depends(get_db)):
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="게시글이 없습니다.")
     
-    # 조회수 1 증가 후 저장
     post.views += 1
     db.commit()
     db.refresh(post)
     return post
 
-# 3. 게시글 작성
 @app.post("/api/posts", response_model=PostResponse)
 def create_post(post_data: PostCreate, db: Session = Depends(get_db)):
     new_post = Post(
@@ -323,14 +340,12 @@ def create_post(post_data: PostCreate, db: Session = Depends(get_db)):
     db.refresh(new_post)
     return new_post
 
-# 4. 게시글 수정 (비밀번호 검증)
 @app.put("/api/posts/{post_id}", response_model=PostResponse)
 def update_post(post_id: int, post_data: PostUpdate, db: Session = Depends(get_db)):
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
     
-    # 비밀번호 비교 검증
     if post.password != post_data.password:
         raise HTTPException(status_code=403, detail="비밀번호가 일치하지 않습니다.")
     
@@ -342,7 +357,6 @@ def update_post(post_id: int, post_data: PostUpdate, db: Session = Depends(get_d
     db.refresh(post)
     return post
 
-# 5. 게시글 삭제 (비밀번호 검증을 쿼리 스트링 혹은 바디 대용으로 처리하기 위해 명세 고도화)
 @app.delete("/api/posts/{post_id}")
 def delete_post(post_id: int, password: str = Query(...), db: Session = Depends(get_db)):
     post = db.query(Post).filter(Post.id == post_id).first()
@@ -356,14 +370,12 @@ def delete_post(post_id: int, password: str = Query(...), db: Session = Depends(
     db.commit()
     return {"message": "삭제 완료"}
 
-# 🔥 [신규 추가] 6. 게시글 좋아요(추천) 증가 API
 @app.post("/api/posts/{post_id}/like", response_model=PostResponse)
 def like_post(post_id: int, db: Session = Depends(get_db)):
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
     
-    # 좋아요 수 1 증가
     post.likes += 1
     db.commit()
     db.refresh(post)
