@@ -91,7 +91,7 @@
                       v-for="ev in day.events"
                       :key="ev.id"
                       class="event-chip"
-                      :title="ev.title"
+                      :data-tooltip="ev.title"
                     >
                       {{ ev.title }}
                     </span>
@@ -637,7 +637,6 @@ function formatEventRange(ev) {
 .calendar-grid {
   border: 1px solid #e5e5e5;
   border-radius: 10px;
-  overflow: hidden;
 }
 
 .weekday-row {
@@ -645,6 +644,7 @@ function formatEventRange(ev) {
   grid-template-columns: repeat(7, 1fr);
   background: #fafafa;
   border-bottom: 1px solid #e5e5e5;
+  border-radius: 9px 9px 0 0;
 }
 
 .weekday {
@@ -671,6 +671,7 @@ function formatEventRange(ev) {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .day-cell:first-child {
@@ -701,6 +702,7 @@ function formatEventRange(ev) {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .event-chip {
@@ -709,10 +711,31 @@ function formatEventRange(ev) {
   font-size: 11px;
   padding: 4px 6px;
   border-radius: 4px;
-  white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: break-word;
-  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  position: relative;
+  cursor: default;
+}
+
+.event-chip:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 4px;
+  background: #1a1a1a;
+  color: #fff;
+  padding: 5px 9px;
+  border-radius: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 30;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 /* ---- Week view ---- */
