@@ -38,10 +38,16 @@
         </section>
       </template>
 
-      <!-- [2] 지역 정보 탭 -->
-      <template v-else-if="currentMenu === 'info'">
+<!-- [2] 💡 캘린더 탭 -->
+      <template v-else-if="currentMenu === 'local-info'">
         <section class="full-section">
-          <LocalInfoView /> 
+          <div class="section-header">
+            <h2>📅 지역 행사 캘린더</h2>
+            <p>구미/경북 지역의 주요 축제, 행사 및 일정을 한눈에 확인하세요.</p>
+          </div>
+          
+          <!-- 💡 플레이스홀더를 지우고 실제 달력 컴포넌트를 바로 렌더링합니다 -->
+          <LocalInfoView />
         </section>
       </template>
 
@@ -72,7 +78,7 @@
 
     </main>
 
-    <!-- 🤖 [신규 수정한 챗봇 레이어] 모든 페이지 공통 적용 -->
+    <!-- 🤖 [챗봇 레이어] 모든 페이지 공통 적용 -->
     <div class="chatbot-wrapper">
       <!-- 챗봇 창 (isChatOpen이 true일 때만 표시) -->
       <div v-if="isChatOpen" class="chatbot-window">
@@ -126,7 +132,7 @@ const currentMenu = ref('home')
 
 const menus = [
   { id: 'home', name: '홈', icon: '🏠' },
-  { id: 'info', name: '지역 정보', icon: '🗺️' },
+  { id: 'local-info', name: '캘린더', icon: '📅' }, // 💡 'info' -> 'calendar' 로 명칭 및 아이콘 수정
   { id: 'map', name: '지도', icon: '📍' },
   { id: 'community', name: '커뮤니티', icon: '💬' }
 ]
@@ -147,17 +153,15 @@ const scrollToBottom = async () => {
   }
 }
 
-// 사용자 메시지 전송 및 자동 앵무새 답변(테스트용)
+// 사용자 메시지 전송 및 자동 앵무새 답변
 const sendMessage = () => {
   if (!userMessage.value.trim()) return
 
-  // 1. 유저 메세지 푸시
   chatMessages.value.push({ sender: 'user', text: userMessage.value })
   const savedMsg = userMessage.value
   userMessage.value = ''
   scrollToBottom()
 
-  // 2. 0.8초 후 로봇 자동 답변 (추후 백엔드나 AI 연동 시 이 부분을 수정)
   setTimeout(() => {
     chatMessages.value.push({ 
       sender: 'bot', 
@@ -169,7 +173,6 @@ const sendMessage = () => {
 </script>
 
 <style scoped>
-/* (질문자님의 기존 CSS 스타일은 그대로 유지되며, 하단에 챗봇 스타일만 안전하게 추가되었습니다) */
 .localhub-container {
   min-height: 100vh;
   background-color: #f8f9fa;
@@ -291,7 +294,7 @@ const sendMessage = () => {
   color: #868e96;
 }
 
-/* 🤖 [신규] 플로팅 챗봇 버튼 & 창 전용 디자인 */
+/* 🤖 플로팅 챗봇 버튼 & 창 전용 디자인 */
 .chatbot-wrapper {
   position: fixed;
   bottom: 24px;
@@ -451,7 +454,6 @@ const sendMessage = () => {
   cursor: pointer;
 }
 
-/* 📱 모바일 및 태블릿 대응 미디어 쿼리 */
 @media (max-width: 1024px) {
   .main-content {
     grid-template-columns: 1fr;
@@ -474,7 +476,6 @@ const sendMessage = () => {
   .menu-name { display: none; }
   .menu-icon { font-size: 22px; }
   
-  /* 모바일에서는 챗봇 크기 조정 */
   .chatbot-window {
     width: calc(100vw - 32px);
     height: 400px;

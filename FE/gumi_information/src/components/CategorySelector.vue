@@ -12,7 +12,7 @@
         v-for="category in categories" 
         :key="category.id"
         @click="toggleCategory(category.id)"
-        :class="['category-card', { selected: selectedCategories.includes(category.id) }]"
+        :class="['category-card', { selected: selectedCategory === category.id }]"
       >
         <!-- 카테고리 이미지 영역 -->
         <div class="card-image-wrapper">
@@ -52,18 +52,29 @@ const categories = [
   { id: 'shopping', title: '쇼핑', tags: '지역 쇼핑 정보, 핫플, 특산물 등', desc: '쇼핑 정보를 받아보세요!', imgUrl: shoppingImg }
 ]
 
-const selectedCategories = ref([])
+// 💡 1개만 선택하므로 배열([]) 대신 초기값 null인 문자열/식별자 상태로 변경
+const selectedCategory = ref(null)
 
+// 💡 선택 토글 로직 수정
 const toggleCategory = (id) => {
-  if (selectedCategories.value.includes(id)) {
-    selectedCategories.value = selectedCategories.value.filter(item => item !== id)
+  if (selectedCategory.value === id) {
+    // 이미 선택된 것을 다시 누르면 선택 해제
+    selectedCategory.value = null
   } else {
-    selectedCategories.value.push(id)
+    // 다른 것을 누르면 해당 카테고리로 단일 교체
+    selectedCategory.value = id
   }
 }
 
 const submitSelection = () => {
-  alert(`선택된 카테고리: ${selectedCategories.value.join(', ')}`)
+  if (!selectedCategory.value) {
+    alert('카테고리를 선택해 주세요.')
+    return
+  }
+  
+  // 현재 선택된 카테고리의 한글 타이틀 찾기
+  const targetCategory = categories.find(c => c.id === selectedCategory.value)
+  alert(`선택된 카테고리: ${targetCategory ? targetCategory.title : selectedCategory.value}`)
 }
 </script>
 
@@ -121,7 +132,7 @@ const submitSelection = () => {
 .card-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transition: transform 0.3s ease;
 }
 .category-card:hover .card-image {
