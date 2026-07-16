@@ -198,7 +198,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 /* ---------------- Events data (fetched from backend) ---------------- */
 // BE(main.py)의 GET /festivals 를 그대로 사용.
 // 개발 중엔 http://localhost:8000, 배포 시엔 실제 API 주소로 바꿔주세요.
-const API_BASE_URL = 'https://gumi-information.onrender.com'
+const API_BASE_URL = 'https://gumi-information.onrender.com' 
 
 const events = reactive([])
 const isLoading = ref(false)
