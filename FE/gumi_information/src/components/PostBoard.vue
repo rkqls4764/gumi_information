@@ -1,7 +1,7 @@
 <!-- src/components/PostBoard.vue -->
 <template>
   <div class="board-container">
-    <!-- 검색 바 -->
+    <!-- 상단 검색 및 글쓰기 바 -->
     <div class="filter-bar">
       <div class="search-box">
         <span class="search-icon">🔍</span>
@@ -10,67 +10,82 @@
       <button @click="openWriteModal" class="write-top-btn">✏️ 글쓰기</button>
     </div>
 
-    <!-- 게시글 목록 -->
-    <div class="post-list">
-      <div v-if="paginatedPosts.length === 0" class="no-posts">등록된 게시글이 없습니다.</div>
+    <!-- 🌟 [수정] 좌우 분할 레이아웃 추가 -->
+    <div class="board-layout">
       
-      <!-- posts 대신 paginatedPosts를 순회하도록 변경 -->
-      <div v-for="post in paginatedPosts" :key="post.id" class="post-card" :class="{ 'is-active': activePostId === post.id }">
-        <!-- 상단 요약 (클릭 시 상세 열기 + 조회수 증가) -->
-        <div class="post-summary-row" @click="toggleDetail(post.id)">
-          <div class="post-main-info">
-            <h3 class="post-title">{{ post.title }}</h3>
-            <div class="post-meta">
-              <span class="author">👤 {{ post.author }}</span>
-              <span class="divider">|</span>
-              <span>📅 {{ post.date }}</span>
+      <!-- ⬅️ 왼쪽 사이드바: 실시간 랭킹 (인기 조회수 & 인기 좋아요) -->
+      <aside class="sidebar-ranking">
+        <!-- 1. 조회수 높은 인기 게시글 -->
+        <div class="ranking-card">
+          <h4 class="ranking-title">🔥 실시간 인기글 (조회순)</h4>
+          <ul v-if="topViewedPosts.length > 0" class="ranking-list">
+            <li v-for="(post, index) in topViewedPosts" :key="'view-'+post.id" @click="toggleDetailFromRanking(post.id)" class="ranking-item">
+              <span class="rank-number">{{ index + 1 }}</span>
+              <span class="rank-post-title">{{ post.title }}</span>
+              <span class="rank-stat">👁️ {{ post.views }}</span>
+            </li>
+          </ul>
+          <div v-else class="no-ranking">집계된 데이터가 없습니다.</div>
+        </div>
+
+        <!-- 2. 좋아요 많은 추천 게시글 -->
+        <div class="ranking-card">
+          <h4 class="ranking-title">❤️ 추천 게시글 (좋아요순)</h4>
+          <ul v-if="topLikedPosts.length > 0" class="ranking-list">
+            <li v-for="(post, index) in topLikedPosts" :key="'like-'+post.id" @click="toggleDetailFromRanking(post.id)" class="ranking-item">
+              <span class="rank-number highlight">{{ index + 1 }}</span>
+              <span class="rank-post-title">{{ post.title }}</span>
+              <span class="rank-stat font-like">❤️ {{ post.likes }}</span>
+            </li>
+          </ul>
+          <div v-else class="no-ranking">집계된 데이터가 없습니다.</div>
+        </div>
+      </aside>
+
+      <!-- ➡️ 오른쪽 영역: 전체 게시글 목록 -->
+      <main class="main-post-area">
+        <div class="post-list">
+          <div v-if="paginatedPosts.length === 0" class="no-posts">등록된 게시글이 없습니다.</div>
+          
+          <div v-for="post in paginatedPosts" :key="post.id" class="post-card" :class="{ 'is-active': activePostId === post.id }">
+            <!-- 상단 요약 -->
+            <div class="post-summary-row" @click="toggleDetail(post.id)">
+              <div class="post-main-info">
+                <h3 class="post-title">{{ post.title }}</h3>
+                <div class="post-meta">
+                  <span class="author">👤 {{ post.author }}</span>
+                  <span class="divider">|</span>
+                  <span>📅 {{ post.date }}</span>
+                </div>
+              </div>
+              <div class="post-stats">
+                <span>👁️ {{ post.views }}</span>
+                <span @click.stop="handleLike(post.id)" class="like-stat-btn">
+                  ❤️ {{ post.likes }}
+                </span>
+              </div>
+            </div>
+
+            <!-- 펼쳐지는 상세 영역 -->
+            <div v-if="activePostId === post.id" class="post-detail-content">
+              <p class="full-text">{{ post.summary }}</p>
+              <div class="detail-actions">
+                <button @click="openEditModal(post)" class="action-btn edit">✍️ 수정</button>
+                <button @click="handleDelete(post.id)" class="action-btn delete">🗑️ 삭제</button>
+              </div>
             </div>
           </div>
-          <div class="post-stats">
-            <span>👁️ {{ post.views }}</span>
-            <span @click.stop="handleLike(post.id)" class="like-stat-btn">
-              ❤️ {{ post.likes }}
-            </span>
-          </div>
         </div>
 
-        <!-- 펼쳐지는 상세 영역 (상세조회 및 수정/삭제 기능) -->
-        <div v-if="activePostId === post.id" class="post-detail-content">
-          <p class="full-text">{{ post.summary }}</p>
-          <div class="detail-actions">
-            <button @click="openEditModal(post)" class="action-btn edit">✍️ 수정</button>
-            <button @click="handleDelete(post.id)" class="action-btn delete">🗑️ 삭제</button>
-          </div>
+        <!-- 페이지네이션 UI -->
+        <div v-if="totalPages > 1" class="pagination-container">
+          <button :disabled="currentPage === 1" @click="currentPage--" class="page-btn prev">이전</button>
+          <button v-for="page in totalPages" :key="page" @click="currentPage = page" :class="['page-number-btn', { active: currentPage === page }]">
+            {{ page }}
+          </button>
+          <button :disabled="currentPage === totalPages" @click="currentPage++" class="page-btn next">다음</button>
         </div>
-      </div>
-    </div>
-
-    <!-- 🎯 [신규 추가] 페이지네이션 UI -->
-    <div v-if="totalPages > 1" class="pagination-container">
-      <button 
-        :disabled="currentPage === 1" 
-        @click="currentPage--" 
-        class="page-btn prev"
-      >
-        이전
-      </button>
-      
-      <button 
-        v-for="page in totalPages" 
-        :key="page" 
-        @click="currentPage = page"
-        :class="['page-number-btn', { active: currentPage === page }]"
-      >
-        {{ page }}
-      </button>
-
-      <button 
-        :disabled="currentPage === totalPages" 
-        @click="currentPage++" 
-        class="page-btn next"
-      >
-        다음
-      </button>
+      </main>
     </div>
 
     <!-- [모달] 글쓰기 및 수정 통합 팝업 -->
@@ -80,7 +95,6 @@
         <input v-model="form.author" type="text" placeholder="작성자명" class="modal-input" />
         <input v-model="form.title" type="text" placeholder="제목을 입력하세요" class="modal-input" />
         <textarea v-model="form.summary" placeholder="내용을 입력하세요" class="modal-textarea"></textarea>
-        <!-- 권한 검증용 암호 필드 -->
         <input v-model="form.password" type="password" placeholder="비밀번호를 입력하세요 (수정/삭제용)" class="modal-input" />
         
         <div class="modal-buttons">
@@ -100,26 +114,39 @@ const API_URL = 'http://localhost:8000/api/posts'
 
 const searchQuery = ref('')
 const posts = ref([])
-const activePostId = ref(null) // 현재 펼쳐진 상세글 ID
+const activePostId = ref(null)
 
-// 🎯 [신규 추가] 페이지네이션 상태 변수
+// 페이지네이션
 const currentPage = ref(1)
 const itemsPerPage = 10
 
-// 모달 및 폼 상태 관리
+// 모달 및 폼 관리
 const showModal = ref(false)
 const isEditMode = ref(false)
 const currentPostId = ref(null)
 const form = ref({ title: '', summary: '', author: '', password: '' })
 
-// 🎯 [신규 추가] 현재 페이지에 해당하는 10개의 게시글만 가공하는 계산 프로퍼티
+// 🌟 [추가 계산 속성] 조회수 상위 5개 추출
+const topViewedPosts = computed(() => {
+  return [...posts.value]
+    .sort((a, b) => b.views - a.views)
+    .slice(0, 5)
+})
+
+// 🌟 [추가 계산 속성] 좋아요 상위 5개 추출
+const topLikedPosts = computed(() => {
+  return [...posts.value]
+    .sort((a, b) => b.likes - a.likes)
+    .slice(0, 5)
+})
+
+// 페이징된 목록
 const paginatedPosts = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage
   const end = start + itemsPerPage
   return posts.value.slice(start, end)
 })
 
-// 🎯 [신규 추가] 총 페이지 수 계산 프로퍼티
 const totalPages = computed(() => {
   return Math.ceil(posts.value.length / itemsPerPage)
 })
@@ -134,13 +161,12 @@ const fetchPosts = async () => {
   }
 }
 
-// 🎯 [신규 추가] 검색어 입력 시 첫 페이지로 리셋하며 목록 조회
 const handleSearch = () => {
   currentPage.value = 1
   fetchPosts()
 }
 
-// 상세조회 (토글 방식 및 조회수 실시간 증가 반영)
+// 상세조회 (토글 및 조회수 증가)
 const toggleDetail = async (id) => {
   if (activePostId.value === id) {
     activePostId.value = null
@@ -154,6 +180,21 @@ const toggleDetail = async (id) => {
     } catch (error) {
       alert('게시글을 불러오지 못했습니다.')
     }
+  }
+}
+
+// 🌟 [추가] 왼쪽 사이드바 랭킹 클릭 시 본문의 해당 상세글 열어주기 & 해당 페이지로 강제 이동
+const toggleDetailFromRanking = async (id) => {
+  // 클릭한 게시물이 전체 배열 중 몇 번째에 위치하는지 찾기
+  const targetIndex = posts.value.findIndex(p => p.id === id)
+  if (targetIndex !== -1) {
+    // 해당 게시글이 있는 페이지 계산 후 강제 이동
+    currentPage.value = Math.floor(targetIndex / itemsPerPage) + 1
+    // 상세글 본문 오픈
+    await toggleDetail(id)
+    
+    // 사용자가 보기 편하도록 부드러운 스크롤 탑 이동
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }
 
@@ -172,7 +213,7 @@ const openEditModal = (post) => {
   showModal.value = true
 }
 
-// 작성 & 수정 전송 통합 처리
+// 작성 & 수정 전송
 const submitForm = async () => {
   if (!form.value.title || !form.value.summary || !form.value.password) {
     alert('비밀번호를 포함한 모든 빈칸을 채워주세요.')
@@ -180,7 +221,6 @@ const submitForm = async () => {
   }
 
   if (isEditMode.value) {
-    // 수정 요청 (PUT)
     try {
       await axios.put(`${API_URL}/${currentPostId.value}`, form.value)
       alert('수정 완료되었습니다.')
@@ -191,7 +231,6 @@ const submitForm = async () => {
       else alert('수정에 실패했습니다.')
     }
   } else {
-    // 작성 요청 (POST)
     const today = new Date()
     const formattedDate = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`
     
@@ -199,7 +238,7 @@ const submitForm = async () => {
       await axios.post(API_URL, { ...form.value, date: formattedDate })
       alert('등록 완료되었습니다.')
       showModal.value = false
-      currentPage.value = 1 // 새 글 등록 시 첫 페이지로 이동
+      currentPage.value = 1
       fetchPosts()
     } catch (error) {
       alert('등록 실패')
@@ -207,7 +246,7 @@ const submitForm = async () => {
   }
 }
 
-// 삭제 요청 처리 (DELETE)
+// 삭제
 const handleDelete = async (id) => {
   const password = prompt('게시글을 삭제하려면 비밀번호를 입력하세요:')
   if (!password) return
@@ -217,7 +256,6 @@ const handleDelete = async (id) => {
     alert('삭제되었습니다.')
     activePostId.value = null
     
-    // 만약 현재 페이지의 마지막 글을 삭제했다면 이전 페이지로 이동시킴
     const tempTotalPages = Math.ceil((posts.value.length - 1) / itemsPerPage)
     if (currentPage.value > tempTotalPages && currentPage.value > 1) {
       currentPage.value = tempTotalPages
@@ -230,7 +268,7 @@ const handleDelete = async (id) => {
   }
 }
 
-// 좋아요 증가 API 호출 함수
+// 좋아요
 const handleLike = async (id) => {
   try {
     const response = await axios.post(`${API_URL}/${id}/like`)
@@ -247,13 +285,101 @@ onMounted(() => { fetchPosts() })
 </script>
 
 <style scoped>
-.board-container { max-width: 800px; margin: 0 auto; padding: 20px; font-family: sans-serif; }
-.filter-bar { display: flex; gap: 12px; margin-bottom: 20px; }
+/* 기존 최대 너비를 약간 늘려서 2분할 레이아웃이 여유롭게 들어갈 수 있게 합니다. */
+.board-container { max-width: 1040px; margin: 0 auto; padding: 20px; font-family: sans-serif; }
+.filter-bar { display: flex; gap: 12px; margin-bottom: 24px; }
 .search-box { position: relative; flex: 1; }
 .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #aaa; }
 .search-input { width: 100%; box-sizing: border-box; padding: 12px 12px 12px 40px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
 .write-top-btn { padding: 0 20px; background: #111; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
+/* 🌟 [신규 추가] 좌측 사이드바 및 우측 본문 배치를 위한 그리드 레이아웃 */
+.board-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* 🌟 [신규 추가] 왼쪽 사이드바 실시간 랭킹 스타일 */
+.sidebar-ranking {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.ranking-card {
+  background: #fff;
+  border: 1px solid #e1e4e6;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+.ranking-title {
+  margin: 0 0 14px 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #111;
+  border-bottom: 1.5px solid #eaeaea;
+  padding-bottom: 8px;
+}
+.ranking-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ranking-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: opacity 0.2s;
+}
+.ranking-item:hover {
+  opacity: 0.7;
+}
+.rank-number {
+  font-weight: bold;
+  color: #1a73e8;
+  width: 16px;
+  text-align: center;
+}
+.rank-number.highlight {
+  color: #e03131;
+}
+.rank-post-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #333;
+}
+.rank-stat {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+}
+.font-like {
+  color: #e03131;
+  font-weight: 500;
+}
+.no-ranking {
+  font-size: 12px;
+  color: #bbb;
+  text-align: center;
+  padding: 12px 0;
+}
+
+/* 오른쪽 전체 게시글 영역 */
+.main-post-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 .post-list { display: flex; flex-direction: column; gap: 12px; }
 .post-card { border: 1px solid #e1e4e6; border-radius: 12px; background: #fff; overflow: hidden; transition: box-shadow 0.2s; }
 .post-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -281,7 +407,7 @@ onMounted(() => { fetchPosts() })
 
 .no-posts { text-align: center; color: #aaa; padding: 40px 0; }
 
-/* 🎯 [신규 추가] 페이지네이션 스타일 */
+/* 페이지네이션 스타일 */
 .pagination-container {
   display: flex;
   justify-content: center;
@@ -341,4 +467,12 @@ onMounted(() => { fetchPosts() })
 .modal-buttons { display: flex; justify-content: flex-end; gap: 8px; }
 .btn-primary { background: #111; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
 .btn-secondary { background: #eee; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+
+/* 🌟 [반응형 최적화] 모바일 브라우저나 창이 좁아지면 사이드바가 위로, 목록이 아래로 정렬되게 구성 */
+@media (max-width: 768px) {
+  .board-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
 </style>

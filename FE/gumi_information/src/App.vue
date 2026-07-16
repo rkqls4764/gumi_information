@@ -61,7 +61,7 @@
         <section class="full-section">
           <div class="section-header">
             <h2>💬 자유 소통 공간</h2>
-            <p>이웃 주민들과 편하게 이야기와 추천 명소 정보를 나누는 게시판입니다.</p>
+            <p>이웃 주민, 친구들과 편하게 이야기와 추천 명소 정보를 나누는 게시판입니다.</p>
           </div>
           <PostBoard />
         </section>
