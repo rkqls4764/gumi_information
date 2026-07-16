@@ -13,11 +13,11 @@
     <!-- 좌우 분할 레이아웃 -->
     <div class="board-layout">
       
-      <!-- ⬅️ 왼쪽 사이드바: 실시간 랭킹 및 브랜드 홍보 광고 -->
+      <!-- ⬅️ 왼쪽 사이드바: 모바일에서는 가로로 넘겨보는 상단 영역으로 변환 -->
       <aside class="sidebar-ranking">
         <!-- 1. 조회수 높은 인기 게시글 -->
         <div class="ranking-card">
-          <h4 class="ranking-title">🔥 실시간 인기글 (조회순)</h4>
+          <h4 class="ranking-title">🔥 실시간 인기글</h4>
           <ul v-if="topViewedPosts.length > 0" class="ranking-list">
             <li v-for="(post, index) in topViewedPosts" :key="'view-'+post.id" @click="toggleDetailFromRanking(post.id)" class="ranking-item">
               <span class="rank-number">{{ index + 1 }}</span>
@@ -30,7 +30,7 @@
 
         <!-- 2. 좋아요 많은 추천 게시글 -->
         <div class="ranking-card">
-          <h4 class="ranking-title">❤️ 추천 게시글 (좋아요순)</h4>
+          <h4 class="ranking-title">❤️ 추천 게시글</h4>
           <ul v-if="topLikedPosts.length > 0" class="ranking-list">
             <li v-for="(post, index) in topLikedPosts" :key="'like-'+post.id" @click="toggleDetailFromRanking(post.id)" class="ranking-item">
               <span class="rank-number highlight">{{ index + 1 }}</span>
@@ -49,7 +49,7 @@
               <img :src="logoImg" alt="어디갈구미 로고" class="promo-logo-image" />
             </span>
             <h5 class="promo-title">구미 플레이스</h5>
-            <p class="promo-desc">내 취향에 딱 맞는 구미의 핫플레이스와 숨은 맛집을 스마트한 AI 챗봇과 함께 찾아보세요!</p>
+            <p class="promo-desc">내 취향에 딱 맞는 핫플레이스와 숨은 맛집을 AI 챗봇과 함께 찾아보세요!</p>
             <button @click="triggerPromoAction" class="promo-btn">지금 찾으러 가기 🚀</button>
           </div>
         </div>
@@ -102,7 +102,7 @@
     </div>
 
     <!-- [모달] 글쓰기 및 수정 통합 팝업 -->
-    <div v-if="showModal" class="modal-overlay">
+    <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
       <div class="modal-content">
         <h3>{{ isEditMode ? '게시글 수정' : '새 게시글 작성' }}</h3>
         <input v-model="form.author" type="text" placeholder="작성자명" class="modal-input" />
@@ -165,7 +165,7 @@ const paginatedPosts = computed(() => {
 })
 
 const totalPages = computed(() => {
-  return Math.ceil(posts.value.length / itemsPerPage)
+  return Math.max(1, Math.ceil(posts.value.length / itemsPerPage))
 })
 
 // 목록 조회
@@ -212,7 +212,6 @@ const toggleDetailFromRanking = async (id) => {
 
 // 광고 클릭 액션 핸들러
 const triggerPromoAction = () => {
-  // 부모(App.vue)에게 챗봇창을 활성화해달라는 신호를 전달합니다.
   emit('open-chatbot')
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
@@ -304,249 +303,413 @@ onMounted(() => { fetchPosts() })
 </script>
 
 <style scoped>
-/* 전체 레이아웃을 여유있게 변경 */
-.board-container { max-width: 1040px; margin: 0 auto; padding: 20px; font-family: sans-serif; }
-.filter-bar { display: flex; gap: 12px; margin-bottom: 24px; }
-.search-box { position: relative; flex: 1; }
-.search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #aaa; }
-.search-input { width: 100%; box-sizing: border-box; padding: 12px 12px 12px 40px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
-.write-top-btn { padding: 0 20px; background: #111; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-
-/* 좌측 사이드바와 우측 본문 배치를 위한 그리드 레이아웃 */
-.board-layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 24px;
-  align-items: start;
+/* ==========================================
+   1. 기본 레이아웃 구성 및 공통 스타일 (박싱 리셋)
+   ========================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-/* 사이드바 영역 */
-.sidebar-ranking {
+.board-container {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 4px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  width: 100%;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.search-box {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #aaa;
+  font-size: 13px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 10px 10px 34px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  background: #f8f9fa;
+  transition: all 0.2s ease;
+}
+
+.search-input:focus {
+  background: #fff;
+  border-color: #111;
+}
+
+.write-top-btn {
+  padding: 0 14px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.board-layout {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+  width: 100%;
 }
-.ranking-card {
+
+/* ==========================================
+   2. 모바일 특화 사이드바 가로 스크롤 레이아웃
+   ========================================== */
+.sidebar-ranking {
+  display: flex;
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden; /* 세로 스크롤 방지 */
+  gap: 12px;
+  width: 100%;
+  padding: 4px 4px 12px 4px; /* 스크롤 터치 마진 확보 */
+  scrollbar-width: none; /* Firefox */
+  -webkit-overflow-scrolling: touch; /* iOS 가속 스크롤 */
+}
+
+.sidebar-ranking::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* 가로 슬라이더 형태 카드 크기 설정 */
+.ranking-card, .promo-banner {
+  flex: 0 0 280px; /* 줄어들지도 않고(0), 늘어나지도 않고(0), 너비 280px 유지 */
+  max-width: 280px;
   background: #fff;
   border: 1px solid #e1e4e6;
   border-radius: 12px;
-  padding: 18px;
+  padding: 14px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  display: block; /* 가로 배열 내 렌더링 유지 보장 */
 }
+
 .ranking-title {
-  margin: 0 0 14px 0;
-  font-size: 14px;
+  margin: 0 0 10px 0;
+  font-size: 13px;
   font-weight: 800;
   color: #111;
   border-bottom: 1.5px solid #eaeaea;
-  padding-bottom: 8px;
+  padding-bottom: 6px;
+  text-align: left;
 }
+
 .ranking-list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
+
 .ranking-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
+  gap: 8px;
+  font-size: 12px;
   cursor: pointer;
-  padding: 4px 0;
+  padding: 2px 0;
   transition: opacity 0.2s;
 }
+
 .ranking-item:hover {
   opacity: 0.7;
 }
+
 .rank-number {
   font-weight: bold;
   color: #1a73e8;
-  width: 16px;
+  width: 14px;
   text-align: center;
 }
+
 .rank-number.highlight {
   color: #e03131;
 }
+
 .rank-post-title {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #333;
+  text-align: left;
 }
+
 .rank-stat {
-  font-size: 11px;
+  font-size: 10px;
   color: #888;
   white-space: nowrap;
 }
+
 .font-like {
   color: #e03131;
   font-weight: 500;
 }
+
 .no-ranking {
-  font-size: 12px;
+  font-size: 11px;
   color: #bbb;
   text-align: center;
-  padding: 12px 0;
+  padding: 20px 0;
 }
 
 /* 홍보 광고 배너 스타일 */
-/* 배너 내부 로고 이미지 크기 및 비율 최적화 */
-.promo-logo-image {
-  height: 55px;        /* 배너 텍스트 높이와 어울리는 크기 (필요시 조정 가능) */
-  width: auto;         /* 가로 세로 비율 강제 유지 */
-  object-fit: contain;
-  vertical-align: middle;
-}
 .promo-banner {
   position: relative;
   background: linear-gradient(135deg, #111111 0%, #2c3e50 100%);
   color: #ffffff;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
+
 .promo-badge {
   position: absolute;
   top: 10px;
-  right: 12px;
+  right: 10px;
   background: rgba(255, 255, 255, 0.15);
   color: rgba(255, 255, 255, 0.8);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
+
 .promo-content {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
 }
+
 .promo-emoji {
-  font-size: 28px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
+
+.promo-logo-image {
+  height: 38px;
+  width: auto;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
 .promo-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 800;
-  margin: 0 0 6px 0;
-  letter-spacing: -0.3px;
+  margin: 4px 0 2px 0;
   color: #ffffff;
 }
+
 .promo-desc {
-  font-size: 11.5px;
-  line-height: 1.5;
+  font-size: 10.5px;
+  line-height: 1.4;
   color: #dddddd;
-  margin: 0 0 14px 0;
+  margin: 0 0 10px 0;
   word-break: keep-all;
 }
+
 .promo-btn {
   width: 100%;
-  padding: 10px;
+  padding: 8px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #ffffff;
   color: #111111;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
 }
-.promo-btn:hover {
-  background: #f1f3f5;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(255, 255, 255, 0.15);
-}
-.promo-btn:active {
-  transform: translateY(0);
-}
 
-/* 우측 게시판 본문 영역 */
+/* ==========================================
+   3. 우측 게시판 본문 영역
+   ========================================== */
 .main-post-area {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
 }
-.post-list { display: flex; flex-direction: column; gap: 12px; }
-.post-card { border: 1px solid #e1e4e6; border-radius: 12px; background: #fff; overflow: hidden; transition: box-shadow 0.2s; }
-.post-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-.post-card.is-active { border-color: #495057; }
 
-.post-summary-row { padding: 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
-.post-title { margin: 0 0 6px 0; font-size: 16px; font-weight: 700; color: #222; }
-.post-meta { font-size: 13px; color: #888; }
-.divider { margin: 0 6px; color: #eee; }
-.post-stats { display: flex; gap: 12px; font-size: 13px; color: #666; }
+.post-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.post-card {
+  border: 1px solid #e1e4e6;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+  width: 100%;
+}
+
+.post-card.is-active {
+  border-color: #495057;
+}
+
+.post-summary-row {
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  gap: 8px;
+}
+
+.post-main-info {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.post-title {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #222;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.post-meta {
+  font-size: 11.5px;
+  color: #888;
+}
+
+.divider {
+  margin: 0 4px;
+  color: #eee;
+}
+
+.post-stats {
+  display: flex;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #666;
+  flex-shrink: 0;
+}
+
 .like-stat-btn {
   cursor: pointer;
-  transition: transform 0.1s ease;
   user-select: none;
 }
-.like-stat-btn:hover {
-  transform: scale(1.15);
+
+.post-detail-content {
+  padding: 16px;
+  background: #fafafa;
+  border-top: 1px solid #f1f3f5;
+  text-align: left;
 }
 
-.post-detail-content { padding: 20px; background: #fafafa; border-top: 1px solid #f1f3f5; }
-.full-text { font-size: 14px; color: #333; line-height: 1.6; margin: 0 0 16px 0; white-space: pre-wrap; }
-.detail-actions { display: flex; gap: 8px; justify-content: flex-end; }
-.action-btn { padding: 6px 12px; border: 1px solid #ddd; background: #fff; border-radius: 6px; font-size: 12px; cursor: pointer; }
-.action-btn.delete { color: #e03131; border-color: #ffc9c9; }
+.full-text {
+  font-size: 13px;
+  color: #333;
+  line-height: 1.5;
+  margin: 0 0 12px 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
 
-.no-posts { text-align: center; color: #aaa; padding: 40px 0; }
+.detail-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.action-btn {
+  padding: 4px 10px;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.action-btn.delete {
+  color: #e03131;
+  border-color: #ffc9c9;
+}
+
+.no-posts {
+  text-align: center;
+  color: #aaa;
+  padding: 40px 0;
+  font-size: 13px;
+}
 
 /* 페이지네이션 */
 .pagination-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 6px;
-  margin-top: 28px;
-  padding-top: 16px;
+  gap: 4px;
+  margin-top: 20px;
+  padding-top: 14px;
   border-top: 1px solid #f1f3f5;
 }
+
 .page-btn {
-  padding: 6px 12px;
+  padding: 5px 10px;
   border: 1px solid #dee2e6;
   background-color: #ffffff;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
 }
-.page-btn:hover:not(:disabled) {
-  background-color: #f1f3f5;
-}
+
 .page-btn:disabled {
   color: #adb5bd;
   background-color: #e9ecef;
   cursor: not-allowed;
 }
+
 .page-number-btn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: 1px solid #dee2e6;
   background-color: #ffffff;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
 }
-.page-number-btn:hover {
-  background-color: #f1f3f5;
-}
+
 .page-number-btn.active {
   background-color: #111111;
   color: #ffffff;
@@ -554,20 +717,209 @@ onMounted(() => { fetchPosts() })
 }
 
 /* 모달 */
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.modal-content { background: #fff; padding: 24px; border-radius: 12px; width: 90%; max-width: 460px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
-.modal-content h3 { margin-top: 0; margin-bottom: 16px; }
-.modal-input { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; font-size: 14px; }
-.modal-textarea { width: 100%; box-sizing: border-box; height: 100px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 14px; font-size: 14px; resize: none; }
-.modal-buttons { display: flex; justify-content: flex-end; gap: 8px; }
-.btn-primary { background: #111; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-.btn-secondary { background: #eee; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
 
-/* 📱 모바일/좁은 화면 반응형 분할 해제 */
-@media (max-width: 768px) {
+.modal-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  text-align: left;
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  outline: none;
+}
+
+.modal-textarea {
+  width: 100%;
+  height: 80px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  resize: none;
+  outline: none;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.btn-primary {
+  background: #111;
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.btn-secondary {
+  background: #eee;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+/* ==========================================
+   4. 데스크톱 반응형 뷰 (768px 이상)
+   ========================================== */
+@media (min-width: 768px) {
+  .board-container {
+    padding: 0;
+  }
+
+  .filter-bar {
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .search-icon {
+    left: 14px;
+    font-size: 15px;
+  }
+
+  .search-input {
+    padding: 12px 12px 12px 40px;
+    font-size: 14px;
+  }
+
+  .write-top-btn {
+    padding: 0 20px;
+    font-size: 14px;
+  }
+
+  /* 데스크톱은 다시 사이드바와 본문 그리드로 격자 배치 */
   .board-layout {
-    grid-template-columns: 1fr;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 24px;
+  }
+
+  .sidebar-ranking {
+    flex-direction: column;
+    overflow-x: visible;
+    gap: 20px;
+    padding: 0;
+  }
+
+  .ranking-card, .promo-banner {
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+    padding: 18px;
+  }
+
+  .ranking-title {
+    font-size: 14px;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+  }
+
+  .ranking-item {
+    font-size: 13px;
+  }
+
+  .rank-stat {
+    font-size: 11px;
+  }
+
+  .promo-logo-image {
+    height: 55px;
+  }
+
+  .promo-title {
+    font-size: 16px;
+    margin-bottom: 6px;
+  }
+
+  .promo-desc {
+    font-size: 11.5px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+
+  .promo-btn {
+    padding: 10px;
+    font-size: 12px;
+  }
+
+  .post-summary-row {
+    padding: 18px;
+  }
+
+  .post-title {
+    font-size: 16px;
+  }
+
+  .post-meta {
+    font-size: 13px;
+  }
+
+  .post-stats {
+    font-size: 13px;
+  }
+
+  .post-detail-content {
+    padding: 20px;
+  }
+
+  .full-text {
+    font-size: 14px;
+  }
+
+  .action-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .pagination-container {
+    gap: 6px;
+  }
+
+  .page-btn {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .page-number-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
   }
 }
 </style>
