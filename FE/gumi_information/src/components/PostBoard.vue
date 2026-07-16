@@ -135,7 +135,7 @@ const activePostId = ref(null)
 
 // 페이지네이션
 const currentPage = ref(1)
-const itemsPerPage = 10
+const itemsPerPage = 8
 
 // 모달 및 폼 관리
 const showModal = ref(false)
