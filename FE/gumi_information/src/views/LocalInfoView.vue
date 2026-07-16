@@ -1,8 +1,9 @@
+<!-- src/views/LocalInfoView.vue -->
 <template>
   <div class="page">
     <main class="content">
       <div class="content-header">
-        <h1>캘린더</h1>
+        <h1>📅 캘린더</h1>
         <p>구미/경북 지역의 행사와 축제 일정을 확인해보세요.</p>
       </div>
 
@@ -15,12 +16,14 @@
           <div class="calendar-controls">
             <div class="controls-left" v-if="viewMode !== '목록'">
               <button type="button" class="btn-outline" @click="goToday">오늘</button>
-              <button type="button" class="btn-icon" @click="navigate(-1)" aria-label="이전">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
-              <button type="button" class="btn-icon" @click="navigate(1)" aria-label="다음">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
+              <div class="navigation-arrows">
+                <button type="button" class="btn-icon" @click="navigate(-1)" aria-label="이전">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <button type="button" class="btn-icon" @click="navigate(1)" aria-label="다음">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
               <span class="month-label">
                 {{ viewMode === '월' ? monthLabel : weekLabel }}
               </span>
@@ -46,7 +49,12 @@
           <!-- Month view -->
           <div v-if="viewMode === '월'" class="calendar-grid">
             <div class="weekday-row">
-              <span v-for="d in weekdays" :key="d" class="weekday">{{ d }}</span>
+              <span
+                v-for="(d, i) in weekdays"
+                :key="d"
+                class="weekday"
+                :class="{ 'weekday-sun': i === 0, 'weekday-sat': i === 6 }"
+              >{{ d }}</span>
             </div>
 
             <div class="weeks">
@@ -58,7 +66,9 @@
                   :class="{ 'is-outside': !day.inCurrentMonth }"
                 >
                   <span class="day-number" :class="{ today: day.isToday }">{{ day.date }}</span>
-                  <div class="day-events">
+                  
+                  <!-- 데스크톱용 일정 칩 (모바일에서 숨김) -->
+                  <div class="day-events desktop-only">
                     <span
                       v-for="ev in day.events"
                       :key="ev.id"
@@ -67,6 +77,17 @@
                     >
                       <span class="event-chip-text">{{ ev.title }}</span>
                     </span>
+                  </div>
+
+                  <!-- 모바일용 미니 도트 인디케이터 (모바일에서만 표시) -->
+                  <div class="day-dots-mobile mobile-only-flex">
+                    <span 
+                      v-for="ev in day.events.slice(0, 3)" 
+                      :key="ev.id" 
+                      class="dot-indicator"
+                      :class="categoryClass(ev.category)"
+                    ></span>
+                    <span v-if="day.events.length > 3" class="dot-more">+</span>
                   </div>
                 </div>
               </div>
@@ -77,7 +98,10 @@
           <div v-else-if="viewMode === '주'" class="calendar-grid week-grid">
             <div class="weekday-row week-weekday-row">
               <div v-for="d in weekDays" :key="d.key" class="week-weekday-cell">
-                <span class="weekday">{{ weekdays[d.date.getDay()] }}</span>
+                <span
+                  class="weekday"
+                  :class="{ 'weekday-sun': d.date.getDay() === 0, 'weekday-sat': d.date.getDay() === 6 }"
+                >{{ weekdays[d.date.getDay()] }}</span>
                 <span class="week-date-number" :class="{ today: d.isToday }">{{ d.date.getDate() }}</span>
               </div>
             </div>
@@ -89,7 +113,7 @@
                   <span v-if="ev.time" class="week-event-time">{{ ev.time }}</span>
                   <span class="week-event-title">{{ ev.title }}</span>
                   <span class="week-event-location">{{ ev.location }}</span>
-                  <span class="category-tag week-event-tag">{{ ev.category }}</span>
+                  <span class="category-tag week-event-tag" :class="categoryClass(ev.category)">{{ ev.category }}</span>
                 </div>
               </div>
             </div>
@@ -102,7 +126,7 @@
               <div class="list-group-header">{{ group.label }} ({{ group.weekday }})</div>
               <div class="list-group-events">
                 <div v-for="ev in group.events" :key="ev.id" class="list-event-row">
-                  <span class="category-tag">{{ ev.category }}</span>
+                  <span class="category-tag" :class="categoryClass(ev.category)">{{ ev.category }}</span>
                   <div class="list-event-body">
                     <p class="list-event-title">{{ ev.title }}</p>
                     <p class="list-event-meta">{{ formatEventRange(ev) }} · {{ ev.location }}</p>
@@ -123,16 +147,17 @@
             </div>
           </div>
 
+          <!-- 카테고리 필터 -->
           <div class="category-filter">
             <p class="filter-label">카테고리 필터</p>
             <div class="filter-options">
               <label class="filter-option">
                 <input type="checkbox" :checked="allSelected" @change="toggleAll" />
-                전체
+                <span>전체</span>
               </label>
               <label v-for="cat in categoryList" :key="cat" class="filter-option">
                 <input type="checkbox" v-model="selectedCategories" :value="cat" />
-                {{ cat }}
+                <span>{{ cat }}</span>
               </label>
             </div>
           </div>
@@ -141,11 +166,11 @@
         <!-- Sidebar -->
         <aside class="sidebar">
           <div class="sidebar-header">
-            <h2>다가오는 일정</h2>
+            <h2>🔥 다가오는 일정</h2>
           </div>
 
           <ul class="upcoming-list">
-            <li v-for="ev in upcomingEvents" :key="ev.id" class="upcoming-item">
+            <li v-for="ev in upcomingEvents.slice(0, 6)" :key="ev.id" class="upcoming-item">
               <div class="date-badge">
                 <span class="date-badge-day">{{ formatShortDate(ev.start) }}</span>
                 <span class="date-badge-weekday">({{ weekdayOf(ev.start) }})</span>
@@ -157,7 +182,7 @@
               </div>
 
               <div class="upcoming-actions">
-                <span class="category-tag">{{ ev.category }}</span>
+                <span class="category-tag" :class="categoryClass(ev.category)">{{ ev.category }}</span>
               </div>
             </li>
           </ul>
@@ -168,7 +193,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, h, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 
 /* ---------------- Events data (fetched from backend) ---------------- */
 // BE(main.py)의 GET /festivals 를 그대로 사용.
@@ -197,34 +222,9 @@ async function loadEvents() {
 
 onMounted(loadEvents)
 
-/* ---------------- Top nav ---------------- */
-const CalendarIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none' }, [
-  h('rect', { x: 3, y: 5, width: 18, height: 16, rx: 2, stroke: 'currentColor', 'stroke-width': 1.8 }),
-  h('path', { d: 'M3 9h18M8 3v4M16 3v4', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round' }),
-])
-const MapIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none' }, [
-  h('path', { d: 'M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linejoin': 'round' }),
-  h('path', { d: 'M9 4v14M15 6v14', stroke: 'currentColor', 'stroke-width': 1.8 }),
-])
-const PinIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none' }, [
-  h('path', { d: 'M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linejoin': 'round' }),
-  h('circle', { cx: 12, cy: 10, r: 2.5, stroke: 'currentColor', 'stroke-width': 1.8 }),
-])
-const ChatIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none' }, [
-  h('path', { d: 'M4 12a8 8 0 1 1 3.2 6.4L4 20l1.3-3.6A7.96 7.96 0 0 1 4 12z', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linejoin': 'round' }),
-])
-
-const tabs = [
-  { key: 'calendar', label: '캘린더', icon: CalendarIcon },
-  { key: 'info', label: '지역 정보', icon: MapIcon },
-  { key: 'map', label: '지도', icon: PinIcon },
-  { key: 'community', label: '커뮤니티', icon: ChatIcon },
-]
-const activeTab = ref('calendar')
-
 /* ---------------- Category filter ---------------- */
 const categoryList = ['축제', '행사', '공연', '전시', '기타']
-const selectedCategories = ref([...categoryList]) // default: show everything
+const selectedCategories = ref([...categoryList])
 
 const allSelected = computed(() => selectedCategories.value.length === categoryList.length)
 
@@ -235,6 +235,18 @@ function toggleAll(e) {
 const filteredEvents = computed(() =>
   events.filter((ev) => selectedCategories.value.includes(ev.category))
 )
+
+const categoryClassMap = {
+  '축제': 'tag-festival',
+  '행사': 'tag-event',
+  '공연': 'tag-performance',
+  '전시': 'tag-exhibition',
+  '기타': 'tag-etc',
+}
+
+function categoryClass(category) {
+  return categoryClassMap[category] || 'tag-etc'
+}
 
 /* ---------------- Calendar state & helpers ---------------- */
 const weekdays = ['일', '월', '화', '수', '목', '금', '토']
@@ -255,7 +267,6 @@ function navigate(delta) {
     d.setDate(d.getDate() + delta * 7)
     current.value = d
   }
-  // 목록 뷰는 날짜 이동 없이 필터된 전체 일정을 보여줍니다.
 }
 
 function goToday() {
@@ -275,7 +286,6 @@ function isSameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
-// Events are shown as a chip only on their start date (matches the design).
 const eventsByDate = computed(() => {
   const map = {}
   for (const ev of filteredEvents.value) {
@@ -287,7 +297,7 @@ const eventsByDate = computed(() => {
 
 const calendarWeeks = computed(() => {
   const firstOfMonth = new Date(viewYear.value, viewMonth.value, 1)
-  const startOffset = firstOfMonth.getDay() // 0=Sun
+  const startOffset = firstOfMonth.getDay()
   const gridStart = new Date(viewYear.value, viewMonth.value, 1 - startOffset)
 
   const weeks = []
@@ -308,7 +318,6 @@ const calendarWeeks = computed(() => {
       cursor.setDate(cursor.getDate() + 1)
     }
     weeks.push(week)
-    // stop after the week that covers the last day of the month, once we've completed a full row
     if (cursor.getMonth() !== viewMonth.value && cursor > new Date(viewYear.value, viewMonth.value + 1, 0)) {
       if (weeks.length >= 4) break
     }
@@ -316,7 +325,6 @@ const calendarWeeks = computed(() => {
   return weeks
 })
 
-// 7 days (Sun–Sat) of the week that contains `current`
 const weekDays = computed(() => {
   const start = new Date(current.value)
   start.setDate(start.getDate() - start.getDay())
@@ -340,12 +348,11 @@ const weekLabel = computed(() => {
   const start = weekDays.value[0].date
   const end = weekDays.value[6].date
   if (start.getMonth() === end.getMonth()) {
-    return `${start.getFullYear()}년 ${start.getMonth() + 1}월 ${start.getDate()}일 - ${end.getDate()}일`
+    return `${start.getMonth() + 1}월 ${start.getDate()}일 - ${end.getDate()}일`
   }
-  return `${start.getFullYear()}년 ${start.getMonth() + 1}월 ${start.getDate()}일 - ${end.getMonth() + 1}월 ${end.getDate()}일`
+  return `${start.getMonth() + 1}월 ${start.getDate()}일 - ${end.getMonth() + 1}월 ${end.getDate()}일`
 })
 
-// Flat, chronological list of all events matching the active category filter
 const listGroups = computed(() => {
   const map = {}
   for (const ev of filteredEvents.value) {
@@ -365,7 +372,6 @@ const listGroups = computed(() => {
     })
 })
 
-/* ---------------- Sidebar: upcoming events ---------------- */
 const upcomingEvents = computed(() => {
   const todayKey = toDateKey(today)
   return filteredEvents.value
@@ -391,104 +397,62 @@ function formatEventRange(ev) {
 </script>
 
 <style scoped>
-* { box-sizing: border-box; }
+/* 전역 box-sizing 강제로 레이아웃 보존 */
+*, *::before, *::after { 
+  box-sizing: border-box; 
+}
+
+/* 반응형 디스플레이 전환 유틸리티 */
+.desktop-only {
+  display: flex !important;
+}
+.mobile-only-flex {
+  display: none !important;
+}
 
 .page {
+  --brand-purple: #7c5cfc;
+  --brand-purple-dark: #6a48e8;
+  --brand-purple-bg: #f1ebff;
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
   color: #1a1a1a;
   background: #fff;
   min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden; /* 가로 스크롤 완전 방지 */
 }
 
-/* ---- Top nav ---- */
-.top-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 40px;
-  border-bottom: 1px solid #eee;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.brand-icon {
-  width: 32px;
-  height: 32px;
-  color: #1a1a1a;
-}
-
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
-}
-
-.brand-text strong {
-  font-size: 18px;
-}
-
-.brand-text span {
-  font-size: 12px;
-  color: #9a9a9a;
-}
-
-.nav-tabs {
-  display: flex;
-  gap: 32px;
-}
-
-.nav-tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: none;
-  font-size: 14px;
-  color: #9a9a9a;
-  cursor: pointer;
-  padding: 6px 2px;
-  border-bottom: 2px solid transparent;
-}
-
-.nav-tab-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.nav-tab.active {
-  color: #1a1a1a;
-  font-weight: 600;
-  border-bottom-color: #1a1a1a;
-}
-
-/* ---- Content ---- */
 .content {
+  width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 32px 40px 80px;
+  padding: 24px 20px 60px;
 }
 
 .content-header h1 {
-  font-size: 26px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 800;
   margin: 0 0 6px;
+  letter-spacing: -0.5px;
 }
 
 .content-header p {
-  font-size: 14px;
-  color: #9a9a9a;
-  margin: 0 0 24px;
+  font-size: 13px;
+  color: #777;
+  margin: 0 0 20px;
 }
 
 .calendar-layout {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: 1fr 340px;
   gap: 24px;
   align-items: start;
+  width: 100%;
+}
+
+.calendar-col {
+  width: 100%;
+  min-width: 0; /* flex/grid 삐져나감 제어 속성 */
 }
 
 /* ---- Controls ---- */
@@ -499,6 +463,7 @@ function formatEventRange(ev) {
   margin-bottom: 16px;
   flex-wrap: wrap;
   gap: 12px;
+  width: 100%;
 }
 
 .controls-left {
@@ -507,71 +472,71 @@ function formatEventRange(ev) {
   gap: 8px;
 }
 
+.navigation-arrows {
+  display: flex;
+  gap: 4px;
+}
+
 .btn-outline {
   padding: 8px 14px;
   font-size: 13px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
   background: #fff;
   cursor: pointer;
+  font-weight: 600;
 }
 
 .btn-outline:hover {
-  background: #f7f7f7;
+  background: #f8f9fa;
 }
 
 .btn-icon {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
   background: #fff;
   cursor: pointer;
-  color: #4a4a4a;
+  color: #495057;
 }
 
 .btn-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 .btn-icon:hover {
-  background: #f7f7f7;
+  background: #f8f9fa;
 }
 
 .month-label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
   font-size: 16px;
-  font-weight: 700;
-  padding: 8px 6px;
-}
-
-.chevron-down {
-  width: 16px;
-  height: 16px;
-  color: #9a9a9a;
+  font-weight: 800;
+  padding-left: 4px;
+  color: #111;
 }
 
 .view-toggle {
   display: flex;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
   overflow: hidden;
+  background: #fff;
 }
 
 .view-toggle-btn {
-  padding: 8px 16px;
+  padding: 8px 14px;
   font-size: 13px;
   background: #fff;
   border: none;
-  border-left: 1px solid #ddd;
-  color: #6a6a6a;
+  border-left: 1px solid #dee2e6;
+  color: #495057;
   cursor: pointer;
+  font-weight: 600;
 }
 
 .view-toggle-btn:first-child {
@@ -585,43 +550,51 @@ function formatEventRange(ev) {
 
 /* ---- Calendar grid ---- */
 .calendar-grid {
-  border: 1px solid #e5e5e5;
-  border-radius: 10px;
+  width: 100%;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
 }
 
 .weekday-row {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  background: #fafafa;
-  border-bottom: 1px solid #e5e5e5;
-  border-radius: 9px 9px 0 0;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
 }
 
 .weekday {
   text-align: center;
-  padding: 10px 0;
+  padding: 12px 0;
   font-size: 13px;
-  color: #9a9a9a;
-  font-weight: 600;
+  color: #868e96;
+  font-weight: 700;
 }
+
+.weekday-sun { color: #fa5252; }
+.weekday-sat { color: #228be6; }
 
 .week-row {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  width: 100%;
 }
 
 .week-row + .week-row {
-  border-top: 1px solid #e5e5e5;
+  border-top: 1px solid #e9ecef;
 }
 
 .day-cell {
   min-height: 110px;
-  padding: 10px;
-  border-left: 1px solid #e5e5e5;
+  padding: 8px;
+  border-left: 1px solid #e9ecef;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 0;
+  gap: 4px;
+  min-width: 0; /* 가로 잘림 방지를 위한 한계치 제어 */
+  overflow: hidden;
 }
 
 .day-cell:first-child {
@@ -629,18 +602,19 @@ function formatEventRange(ev) {
 }
 
 .day-cell.is-outside .day-number {
-  color: #ccc;
+  color: #ced4da;
 }
 
 .day-number {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   width: 24px;
   height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
+  color: #343a40;
 }
 
 .day-number.today {
@@ -656,17 +630,16 @@ function formatEventRange(ev) {
 }
 
 .event-chip {
-  background: #f0f0f0;
-  color: #4a4a4a;
+  background: var(--brand-purple-bg);
+  color: var(--brand-purple-dark);
   font-size: 11px;
-  padding: 4px 6px;
+  font-weight: 700;
+  padding: 3px 6px;
   border-radius: 4px;
   max-width: 100%;
   min-width: 0;
-  box-sizing: border-box;
   position: relative;
-  cursor: default;
-  /* overflow: hidden을 여기 두면 아래 :hover::after 툴팁까지 같이 잘려서 안 보임 */
+  cursor: pointer;
 }
 
 .event-chip-text {
@@ -680,17 +653,18 @@ function formatEventRange(ev) {
   content: attr(data-tooltip);
   position: absolute;
   bottom: 100%;
-  left: 0;
-  margin-bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 6px;
   background: #1a1a1a;
   color: #fff;
-  padding: 5px 9px;
-  border-radius: 5px;
+  padding: 6px 10px;
+  border-radius: 6px;
   font-size: 12px;
   white-space: nowrap;
-  z-index: 30;
+  z-index: 50;
   pointer-events: none;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* ---- Week view ---- */
@@ -702,15 +676,15 @@ function formatEventRange(ev) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   padding: 10px 0;
 }
 
 .week-date-number {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -725,15 +699,17 @@ function formatEventRange(ev) {
 .week-body-row {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  min-height: 360px;
+  min-height: 400px;
+  width: 100%;
 }
 
 .week-day-col {
-  border-left: 1px solid #e5e5e5;
-  padding: 10px 8px;
+  border-left: 1px solid #e9ecef;
+  padding: 8px 4px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .week-day-col:first-child {
@@ -742,85 +718,98 @@ function formatEventRange(ev) {
 
 .week-empty {
   font-size: 11px;
-  color: #ccc;
+  color: #adb5bd;
   text-align: center;
-  margin-top: 12px;
+  margin-top: 16px;
 }
 
 .week-event-card {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  background: #f7f7f7;
-  border-radius: 6px;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
   padding: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.01);
+  min-width: 0;
 }
 
 .week-event-time {
-  font-size: 11px;
-  color: #6a6a6a;
-  font-weight: 600;
+  font-size: 10px;
+  color: #495057;
+  font-weight: 700;
 }
 
 .week-event-title {
   font-size: 12px;
-  font-weight: 700;
-  color: #1a1a1a;
+  font-weight: 800;
+  color: #111;
+  line-height: 1.3;
 }
 
 .week-event-location {
-  font-size: 11px;
-  color: #9a9a9a;
+  font-size: 10px;
+  color: #868e96;
 }
 
 .week-event-tag {
   align-self: flex-start;
-  margin-top: 2px;
+  transform: scale(0.9);
+  transform-origin: left;
 }
 
 /* ---- List view ---- */
 .list-summary {
   font-size: 14px;
-  font-weight: 600;
-  color: #4a4a4a;
+  font-weight: 700;
+  color: #495057;
 }
 
 .list-view {
-  padding: 8px 20px 20px;
+  padding: 16px;
 }
 
 .list-empty {
-  padding: 40px 0;
+  padding: 60px 0;
   text-align: center;
   font-size: 13px;
-  color: #bbb;
+  color: #adb5bd;
 }
 
 .list-group + .list-group {
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 .list-group-header {
   font-size: 14px;
-  font-weight: 700;
-  padding: 12px 0 8px;
-  border-bottom: 1px solid #eee;
-  margin-bottom: 10px;
+  font-weight: 800;
+  padding: 0 0 8px;
+  border-bottom: 1.5px solid #f1f3f5;
+  margin-bottom: 12px;
+  color: #111;
 }
 
 .list-group-events {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .list-event-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
-  padding: 10px;
-  border: 1px solid #eee;
-  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #f1f3f5;
+  border-radius: 10px;
+  background: #fafafa;
+  transition: all 0.2s ease;
+}
+
+.list-event-row:hover {
+  border-color: #dee2e6;
+  background: #fff;
 }
 
 .list-event-body {
@@ -830,42 +819,43 @@ function formatEventRange(ev) {
 
 .list-event-title {
   font-size: 14px;
-  font-weight: 700;
-  margin: 0 0 4px;
+  font-weight: 800;
+  margin: 0 0 3px;
+  color: #111;
 }
 
 .list-event-meta {
   font-size: 12px;
-  color: #9a9a9a;
+  color: #868e96;
   margin: 0;
 }
 
-/* ---- Status text (loading/error) ---- */
+/* ---- Status text ---- */
 .status-text {
   font-size: 13px;
-  color: #9a9a9a;
+  color: #868e96;
   margin: 0 0 12px;
 }
-
-.status-error {
-  color: #d9534f;
-}
+.status-error { color: #fa5252; }
 
 /* ---- Category filter ---- */
 .category-filter {
-  margin-top: 20px;
+  margin-top: 24px;
+  width: 100%;
 }
 
 .filter-label {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0 0 12px;
+  color: #495057;
+  text-transform: uppercase;
 }
 
 .filter-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 16px;
 }
 
 .filter-option {
@@ -873,69 +863,53 @@ function formatEventRange(ev) {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #4a4a4a;
+  color: #495057;
   cursor: pointer;
+  font-weight: 600;
 }
 
 .filter-option input {
-  width: 15px;
-  height: 15px;
-  accent-color: #1a1a1a;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand-purple);
   cursor: pointer;
 }
 
 /* ---- Sidebar ---- */
 .sidebar {
-  border: 1px solid #e5e5e5;
-  border-radius: 10px;
-  padding: 20px;
-}
-
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 24px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  width: 100%;
 }
 
 .sidebar-header h2 {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 800;
   margin: 0;
-}
-
-.link-btn {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  background: none;
-  border: none;
-  font-size: 12px;
-  color: #9a9a9a;
-  cursor: pointer;
-}
-
-.link-btn svg {
-  width: 14px;
-  height: 14px;
+  color: #111;
 }
 
 .upcoming-list {
   list-style: none;
-  margin: 0;
+  margin: 12px 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .upcoming-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
-  padding: 10px;
-  border: 1px solid #eee;
-  border-radius: 8px;
+  padding: 12px 0;
+}
+
+.upcoming-item + .upcoming-item {
+  border-top: 1px solid #f1f3f5;
 }
 
 .date-badge {
@@ -943,20 +917,22 @@ function formatEventRange(ev) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 52px;
-  padding: 6px 4px;
-  border: 1px solid #e5e5e5;
-  border-radius: 6px;
+  min-width: 46px;
+  background: #f8f9fa;
+  padding: 6px;
+  border-radius: 8px;
 }
 
 .date-badge-day {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--brand-purple);
 }
 
 .date-badge-weekday {
-  font-size: 11px;
-  color: #9a9a9a;
+  font-size: 10px;
+  color: #868e96;
+  font-weight: 600;
 }
 
 .upcoming-body {
@@ -965,79 +941,256 @@ function formatEventRange(ev) {
 }
 
 .upcoming-title {
-  font-size: 14px;
-  font-weight: 700;
-  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0 0 3px;
+  color: #111;
 }
 
 .upcoming-meta {
-  font-size: 12px;
-  color: #9a9a9a;
+  font-size: 11px;
+  color: #868e96;
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.upcoming-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-}
-
 .category-tag {
   font-size: 11px;
-  background: #f0f0f0;
-  color: #4a4a4a;
-  padding: 3px 8px;
-  border-radius: 999px;
+  font-weight: 700;
+  background: #f1f3f5;
+  color: #495057;
+  padding: 4px 8px;
+  border-radius: 20px;
   white-space: nowrap;
+}
+
+.category-tag.tag-festival {
+  background: var(--brand-purple-bg);
+  color: var(--brand-purple-dark);
+}
+
+.category-tag.tag-event {
+  background: #fff3d6;
+  color: #d9480f;
+}
+
+.category-tag.tag-performance {
+  background: #e7f5ff;
+  color: #1c7ed6;
+}
+
+.category-tag.tag-exhibition {
+  background: #e6fcf5;
+  color: #0ca678;
+}
+
+.category-tag.tag-etc {
+  background: #f1f3f5;
+  color: #868e96;
 }
 
 .bookmark-btn {
   background: none;
   border: none;
   cursor: pointer;
-  color: #bbb;
-  padding: 0;
+  color: #dee2e6;
+  padding: 8px;
 }
 
 .bookmark-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 .bookmark-btn.active {
-  color: #1a1a1a;
+  color: #111;
 }
 
-/* ---- Floating action button ---- */
-.fab {
-  position: fixed;
-  right: 32px;
-  bottom: 32px;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: #1a1a1a;
-  color: #fff;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
+/* ==============================================
+   📱 모바일 디바이스 최적화 미디어 쿼리 (max-width: 640px)
+   ============================================== */
+@media (max-width: 640px) {
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only-flex {
+    display: flex !important;
+  }
 
-.fab svg {
-  width: 22px;
-  height: 22px;
-}
+  /* 1. 컨텐트 바깥 좌우 패딩을 10px로 축소하여 가로 확장 */
+  .content {
+    padding: 16px 10px 40px;
+  }
 
-@media (max-width: 960px) {
+  .content-header h1 {
+    font-size: 20px;
+  }
+  .content-header p {
+    font-size: 12px;
+    margin-bottom: 16px;
+  }
+
+  /* 2. 가로폭 완전 전면 보장 */
   .calendar-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: 100%;
+    gap: 20px;
+    width: 100%;
+  }
+
+  .calendar-col {
+    width: 100%;
+  }
+
+  .calendar-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .controls-left {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .month-label {
+    font-size: 15px;
+  }
+
+  .view-toggle {
+    width: 100%;
+  }
+
+  .view-toggle-btn {
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+  }
+
+  /* 3. 모바일 그리드가 화면 바깥으로 튀어나가지 않도록 제어 */
+  .calendar-grid {
+    width: 100%;
+    max-width: 100%;
+    table-layout: fixed;
+  }
+
+  .weekday-row, .weeks, .week-row {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .weekday-row {
+    grid-template-columns: repeat(7, 1fr);
+  }
+
+  .week-row {
+    grid-template-columns: repeat(7, 1fr);
+  }
+
+  .day-cell {
+    min-height: 52px;
+    padding: 4px 2px;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0; /* 중요: 셀 가두기 */
+    overflow: hidden;
+  }
+
+  .day-number {
+    font-size: 11px;
+    width: 18px;
+    height: 18px;
+  }
+
+  /* 모바일용 일정 점(Dot) 인디케이터 */
+  .day-dots-mobile {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2px;
+    width: 100%;
+    min-height: 6px;
+  }
+
+  .dot-indicator {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: #adb5bd;
+    flex-shrink: 0;
+  }
+  .dot-indicator.tag-festival { background-color: var(--brand-purple); }
+  .dot-indicator.tag-event { background-color: #f76707; }
+  .dot-indicator.tag-performance { background-color: #228be6; }
+  .dot-indicator.tag-exhibition { background-color: #12b886; }
+  .dot-indicator.tag-etc { background-color: #868e96; }
+
+  .dot-more {
+    font-size: 8px;
+    color: #868e96;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /* 주(Week) 뷰 가로 크기 붕괴 방지 */
+  .week-weekday-row {
+    width: 100%;
+  }
+  .week-date-number {
+    font-size: 12px;
+    width: 20px;
+    height: 20px;
+  }
+  .week-body-row {
+    min-height: 240px;
+    width: 100%;
+  }
+  .week-day-col {
+    padding: 4px 1px;
+    min-width: 0;
+  }
+  .week-event-card {
+    padding: 4px 2px;
+    border-radius: 4px;
+    min-width: 0;
+  }
+  .week-event-title {
+    font-size: 9px;
+    line-height: 1.2;
+    word-break: break-all;
+  }
+  .week-event-location {
+    display: none;
+  }
+
+  /* 카테고리 필터 미세 조정 */
+  .filter-options {
+    gap: 10px;
+  }
+  .filter-option {
+    font-size: 12px;
+  }
+
+  /* 다가오는 일정 하단부 리스타일링 */
+  .sidebar {
+    padding: 16px;
+    border-radius: 12px;
+    width: 100%;
+  }
+  .upcoming-item {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    border: none !important;
+  }
+  .upcoming-title {
+    font-size: 12px;
+  }
+  .upcoming-meta {
+    font-size: 10px;
   }
 }
 </style>

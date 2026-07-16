@@ -130,13 +130,13 @@ const submitSelection = () => {
   height: auto;
 }
 .category-card:hover {
-  border-color: #868e96;
+  border-color: #b8a4fc;
   transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+  box-shadow: 0 8px 20px rgba(124, 92, 252, 0.12);
 }
 .category-card.selected {
-  border-color: #111;
-  box-shadow: 0 0 0 1.5px #111;
+  border-color: #7c5cfc;
+  box-shadow: 0 0 0 1.5px #7c5cfc;
 }
 .card-image-wrapper {
   position: relative;
@@ -206,9 +206,9 @@ const submitSelection = () => {
   transition: all 0.2s;
 }
 .submit-btn:hover {
-  background-color: #111;
+  background-color: #7c5cfc;
   color: #fff;
-  border-color: #111;
+  border-color: #7c5cfc;
 }
 
 @media (max-width: 640px) {
