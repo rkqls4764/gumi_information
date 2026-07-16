@@ -595,6 +595,8 @@ const sendMessage = async () => {
 }
 
 .message-bubble {
+  margin: 0;
+  white-space: pre-line;
   max-width: 80%;
   padding: 10px 14px;
   border-radius: 14px;
