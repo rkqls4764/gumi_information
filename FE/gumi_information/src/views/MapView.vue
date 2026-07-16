@@ -708,7 +708,7 @@ watch(filteredPlaces, () => {
 .controls {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   margin-bottom: 24px;
 }
 
@@ -722,7 +722,7 @@ watch(filteredPlaces, () => {
   min-width: 70px;
   font-weight: 700;
   font-size: 0.95rem;
-  color: #374151;
+  color: #1a1a1a;
 }
 
 .filter-buttons {
@@ -748,9 +748,9 @@ button:hover {
 }
 
 button.selected {
-  background: #111;
+  background: #7c5cfc;
   color: #fff;
-  border-color: #111;
+  border-color: #7c5cfc;
 }
 
 /* 🌟 반응형 2단 레이아웃 (지도 좌측 고정 높이, 리스트 우측 배치 유지) */
@@ -808,7 +808,7 @@ button.selected {
 .current-location-button {
   width: 100%;
   border: none;
-  background: #111;
+  background: #7c5cfc;
   color: #fff;
   padding: 14px;
   border-radius: 12px;
@@ -819,7 +819,7 @@ button.selected {
 }
 
 .current-location-button:hover {
-  background: #1f2937;
+  background: #6a48e8;
 }
 
 /* 📋 우측 장소 목록 영역 */
@@ -969,9 +969,9 @@ button.selected {
 }
 
 .page-number.selected {
-  background: #111;
+  background: #7c5cfc;
   color: #fff;
-  border-color: #111;
+  border-color: #7c5cfc;
 }
 
 .page-numbers {
