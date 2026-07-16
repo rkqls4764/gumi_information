@@ -35,6 +35,9 @@
 import { ref, watch } from 'vue'
 import axios from 'axios'
 
+const allPlaces = ref([])
+const isLoaded = ref(false)
+
 const props = defineProps({
   category: String
 })
@@ -45,50 +48,62 @@ watch(
   () => props.category,
   async (newCategory) => {
 
-    const { data } = await axios.get(
-      'https://gumi-information.onrender.com/places'
-    )
+    // 최초 한번만 API 호출
+    if (!isLoaded.value) {
+      const { data } = await axios.get(
+        'https://gumi-information.onrender.com/places'
+      )
 
-    // 관심사 선택 안 했을 때
+      allPlaces.value = data
+      isLoaded.value = true
+    }
+
+
+    let filtered = [...allPlaces.value]
+
+
+    // 관심사 선택 안함
     if (!newCategory) {
-      places.value = data
+
+      places.value = filtered
         .sort(
-          (a, b) =>
-            (b.avg_rating || 0) -
-            (a.avg_rating || 0)
+          (a,b)=>
+          (b.avg_rating || 0) -
+          (a.avg_rating || 0)
         )
-        .slice(0, 6)
+        .slice(0,6)
 
       return
     }
 
-console.log('화면폭:', window.innerWidth)
-console.log('최대개수:', getMaxItems())
 
     const categoryMap = {
-      sports: [28],
-      food: [39],
-      travel: [12, 14, 15, 25],
-      shopping: [38]
+      sports:[28],
+      food:[39],
+      travel:[12,14,15,25],
+      shopping:[38]
     }
+
 
     const targetTypes =
       categoryMap[newCategory] || []
 
-    places.value = data
+
+    places.value = filtered
       .filter(place =>
         targetTypes.includes(
           Number(place.content_type_id)
         )
       )
       .sort(
-        (a, b) =>
-          (b.avg_rating || 0) -
-          (a.avg_rating || 0)
+        (a,b)=>
+        (b.avg_rating || 0) -
+        (a.avg_rating || 0)
       )
-      .slice(0, 6)
+      .slice(0,6)
+
   },
-  { immediate: true }
+  { immediate:true }
 )
 
 const sortedPlaces = places
