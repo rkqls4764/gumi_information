@@ -102,12 +102,19 @@
 
         <!-- 카테고리 셀렉터 칩 영역 -->
         <div class="chat-category-bar">
-          <span class="category-bar-title">관심사 필터:</span>
+          <span class="category-bar-title">관심사를 선택해 정확한 장소를 추천 받으세요!</span>
           <div class="category-chips">
             <button 
               v-for="cat in chatCategories" 
               :key="cat.value"
-              :class="['category-chip', { active: selectedChatCategory === cat.value }]"
+              :disabled="isBotLoading"
+              :class="[
+                'category-chip', 
+                { 
+                  active: selectedChatCategory === cat.value,
+                  disabled: isBotLoading
+                }
+              ]"
               @click="toggleCategory(cat.value)"
             >
               {{ cat.icon }} {{ cat.label }}
@@ -507,8 +514,8 @@ const sendMessage = async () => {
 }
 
 .chatbot-window {
-  width: 380px;
-  height: 520px;
+  width: 450px;
+  height: 650px;
   background-color: #ffffff;
   border-radius: 16px;
   border: 1px solid #e9ecef;
@@ -646,6 +653,12 @@ const sendMessage = async () => {
   color: #ffffff;
   align-self: flex-end;
   border-top-right-radius: 2px;
+}
+
+/* AI 답변 생성 중 비활성화 스타일 */
+.category-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .chat-input-form {
