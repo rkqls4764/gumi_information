@@ -29,8 +29,10 @@ const reviewModalOpen = ref(false)
 const reviewDraft = ref(0)
 const reviewSubmitting = ref(false)
 
-const openPlaceDetail = (place) => {
+const openPlaceDetail = async (place) => {
   selectedPlace.value = place
+
+  await loadReviewsForPlace(place)
 }
 
 const closePlaceDetail = () => {
@@ -282,23 +284,18 @@ function mapTypeFromCats(place) {
 
 const filteredPlaces = computed(() => {
   return places.value.filter(place => {
+
     const categoryMatch =
       activeCategory.value === 'all' ||
       place.type === activeCategory.value
 
+
     const regionMatch =
-  activeRegion.value === 'all' ||
-  place.regionKey === activeRegion.value
+      activeRegion.value === 'all' ||
+      place.regionKey === activeRegion.value
 
-    const boundsMatch =
-      !mapBounds.value ||
-      mapBounds.value.contains(
-        L.latLng(place.lat, place.lng)
-      )
 
-    return categoryMatch &&
-           regionMatch &&
-           boundsMatch
+    return categoryMatch && regionMatch
   })
 })
 
@@ -320,7 +317,7 @@ const updateMarkers = () => {
   markerGroup.value.clearLayers()
 
   const visiblePlaces = filteredPlaces.value
-  const MAX_MARKERS = 100
+  const MAX_MARKERS = 50
   const placesToShow = visiblePlaces.length > MAX_MARKERS ? visiblePlaces.slice(0, MAX_MARKERS) : visiblePlaces
 
   placesToShow.forEach(place => {
@@ -342,7 +339,8 @@ const initMap = () => {
 
   map.value.on('moveend zoomend', () => {
     mapBounds.value = map.value.getBounds()
-    updateMarkers()
+
+    fetchPlaces()
   })
 }
 
@@ -388,17 +386,23 @@ const loadReviewsForPlace = async (place) => {
   }
 }
 
-const loadReviewsForPlaces = async () => {
-  if (!places.value.length) return
-  await Promise.all(places.value.map(place => loadReviewsForPlace(place)))
-}
-
 async function fetchPlaces() {
   try {
     const API_BASE = import.meta.env.VITE_API_BASE || 'https://gumi-information.onrender.com'
-    const url = `${API_BASE}/places`
+    const bounds = map.value.getBounds()
+
+    const params = new URLSearchParams({
+      minLat: bounds.getSouth(),
+      maxLat: bounds.getNorth(),
+      minLng: bounds.getWest(),
+      maxLng: bounds.getEast()
+    })
+
+
+    const url = `${API_BASE}/places?${params.toString()}`
 
     const res = await fetch(url)
+
     if (!res.ok) {
       const txt = await res.text()
       console.error('places fetch failed status', res.status, txt)
@@ -449,9 +453,10 @@ async function fetchPlaces() {
           area: p.areacode || '',
           regionKey: regionInfo?.key || null,
           regionLabel: regionInfo?.label || '',
-          rating: p.avg_rating || 0,
-          review: 0,
-          averageRating: p.avg_rating || 0,
+          rating: Number(p.avg_rating || 0),
+          review: Number(p.review_count || 0),
+          averageRating: Number(p.avg_rating || 0),
+          reviewCount: Number(p.review_count || 0),
           lat,
           lng,
           image: p.firstimage || p.firstimage2 || ''

@@ -515,38 +515,57 @@ DB 데이터:
 @app.get("/places")
 def list_places(
     keyword: Optional[str] = Query(None),
+    minLat: Optional[float] = Query(None),
+    maxLat: Optional[float] = Query(None),
+    minLng: Optional[float] = Query(None),
+    maxLng: Optional[float] = Query(None),
     db: Session = Depends(get_db)
 ):
+
     query = db.query(Place)
 
+
+    # 검색어
     if keyword:
         query = query.filter(
             Place.title.contains(keyword)
         )
 
-    places = query.order_by(Place.title).all()
+
+    # 지도 영역 필터
+    if (
+        minLat is not None
+        and maxLat is not None
+        and minLng is not None
+        and maxLng is not None
+    ):
+        query = query.filter(
+            Place.mapy >= minLat,
+            Place.mapy <= maxLat,
+            Place.mapx >= minLng,
+            Place.mapx <= maxLng
+        )
+
+
+    # 최대 개수 제한
+    places = (
+        query
+        .order_by(Place.title)
+        .limit(100)
+        .all()
+    )
+
 
     result = []
 
     for place in places:
-
-        avg_rating = (
-            db.query(func.avg(PlaceReview.rating))
-            .filter(
-                PlaceReview.place_content_id
-                == place.content_id
-            )
-            .scalar()
-        )
-
         item = place_to_dict(place)
 
-        item["avg_rating"] = round(
-            float(avg_rating or 0),
-            1
-        )
+        item["avg_rating"] = 0
+        item["review_count"] = 0
 
         result.append(item)
+
 
     return result
 
