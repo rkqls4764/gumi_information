@@ -193,6 +193,97 @@ def to_iso_date(yyyymmdd: Optional[str]) -> Optional[str]:
 def resolve_category(lcls_systm2: Optional[str]) -> str:
     return CATEGORY_MAP.get(lcls_systm2, DEFAULT_CATEGORY)
 
+import re
+
+# 지역명 매핑
+REGIONS = {
+    "구미": ["구미", "구미시"],
+    "칠곡": ["칠곡", "칠곡군"],
+    "김천": ["김천", "김천시"],
+    "대구": ["대구", "대구광역시"],
+    "경산": ["경산", "경산시"],
+}
+
+def map_type_from_place(place):
+
+    text = " ".join([
+        str(place.title or ""),
+        str(place.addr1 or ""),
+        str(place.addr2 or ""),
+        str(place.cat1 or ""),
+        str(place.cat2 or ""),
+        str(place.cat3 or ""),
+        str(place.lcls_systm1 or ""),
+        str(place.lcls_systm2 or ""),
+        str(place.lcls_systm3 or "")
+    ]).lower()
+
+
+    content_type_id = int(place.content_type_id or 0)
+
+
+    # 음식점
+    if (
+        content_type_id == 39
+        or re.search(
+            r"음식|맛집|식당|한식|중식|일식|양식|분식|카페|커피|치킨|피자|국밥|백반",
+            text
+        )
+    ):
+        return "food"
+
+
+    # 카페
+    if re.search(
+        r"카페|커피|cafe|coffee|디저트|베이커리|브런치",
+        text
+    ):
+        return "cafe"
+
+
+    # 숙박
+    if re.search(
+        r"숙박|호텔|민박|펜션|리조트",
+        text
+    ):
+        return "stay"
+    
+    # 쇼핑
+    if re.search(
+        r"시장|마트|쇼핑|백화점|아울렛|상점|몰",
+        text
+    ):
+        return "shopping"
+
+
+    # 운동
+    if re.search(
+        r"레포츠|스포츠|운동|등산|트레킹|캠핑|자전거|골프|수영|헬스",
+        text
+    ):
+        return "activity"
+
+
+    # 축제
+    if re.search(
+        r"축제|공연|행사",
+        text
+    ):
+        return "festival"
+
+
+    # 관광
+    if (
+        content_type_id in [12,14,15,28]
+        or re.search(
+            r"관광|명소|문화|공원|사찰|성지",
+            text
+        )
+    ):
+        return "tour"
+
+
+    return "tour"
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -202,89 +293,222 @@ def health():
 # 🤖 [고도화 추가] 카테고리 필터링 연동 GPT 챗봇 엔드포인트
 # ------------------------------------------
 @app.post("/api/chat")
-def chat_with_filtered_db(request: ChatRequest, db: Session = Depends(get_db)):
+def chat_with_db(
+    request: ChatRequest,
+    db: Session = Depends(get_db)
+):
     user_prompt = request.message
     category = request.category
 
-    db_context_list = []
-    
     try:
-        # 기본 쿼리 빌더 시작
-        query = db.query(Place)
-        
-        # 1. 사용자가 선택한 카테고리가 있을 경우 데이터베이스 필터링 적용
-        if category:
-            if category == "음식":
-                # A05 = 식음료/음식점 관련 코드
-                query = query.filter(Place.cat1 == "A05")
-            elif category == "여행":
-                # A01(자연), A02(인문/문화) 관련 코드
-                query = query.filter(or_(Place.cat1 == "A01", Place.cat1 == "A02"))
-            elif category == "쇼핑":
-                # A04 = 쇼핑 관련 코드
-                query = query.filter(Place.cat1 == "A04")
-            elif category == "운동":
-                # A03 = 레포츠/액티비티 관련 코드
-                query = query.filter(Place.cat1 == "A03")
-        
-        # 2. 질문에서 추가 키워드가 있다면 제목(title)이나 주소(addr1) 검색도 결합
-        keywords = [k for k in user_prompt.split() if len(k) > 1]
-        if keywords:
-            filters = []
-            for kw in keywords:
-                filters.append(Place.title.contains(kw))
-                filters.append(Place.addr1.contains(kw))
-            query = query.filter(or_(*filters))
-            
-        # 3. 매칭되는 로컬 데이터 최대 5개 추출
-        matched_places = query.limit(5).all()
-        
-        for place in matched_places:
-            db_context_list.append(
-                f"- 이름: {place.title} | 주소: {place.addr1 or '정보 없음'} | 전화: {place.tel or '정보 없음'} | 분류: {place.cat3 or '정보 없음'}"
+        # ==============================
+        # 1. DB 데이터 가져오기
+        # ==============================
+        places = db.query(Place).all()
+
+        # ==============================
+        # 지역 필터
+        # ==============================
+        region_keyword = None
+
+        for region, keywords in REGIONS.items():
+            for keyword in keywords:
+                if keyword in user_prompt:
+                    region_keyword = region
+                    break
+
+            if region_keyword:
+                break
+
+
+        if region_keyword:
+            # 지역명이 있으면 해당 지역만 검색
+            places = [
+                p for p in places
+                if any(
+                    keyword in (p.addr1 or "")
+                    for keyword in REGIONS[region_keyword]
+                )
+            ]
+
+        else:
+            # 지역명이 없으면 전체 지역 검색
+            places = places
+
+            print("\n========== 지역 필터 결과 ==========")
+            print("검색 지역:", region_keyword)
+            print("필터 개수:", len(places))
+
+            for p in places[:20]:
+                print(
+                    f"""
+                이름: {p.title}
+                주소: {p.addr1}
+
+                content_type_id: {p.content_type_id}
+
+                cat1: {p.cat1}
+                cat2: {p.cat2}
+                cat3: {p.cat3}
+
+                lcls1: {p.lcls_systm1}
+                lcls2: {p.lcls_systm2}
+                lcls3: {p.lcls_systm3}
+
+                카테고리: {map_type_from_place(p)}
+                """
+                )
+
+            print("====================================\n")
+
+        db_context = []
+
+        for place in places:
+
+            place_type = map_type_from_place(place)
+
+
+            # 관심사 필터
+            if category:
+
+                category_map = {
+                    "음식": "food",
+                    "카페": "cafe",
+                    "여행": "tour",
+                    "관광": "tour",
+                    "운동": "activity",
+                    "쇼핑": "shopping"
+                }
+
+
+                target_category = category_map.get(category)
+
+
+                if target_category and place_type != target_category:
+                    continue
+
+
+            db_context.append(
+                {
+                    "이름": place.title,
+                    "카테고리": place_type,
+                    "주소": place.addr1 or "정보 없음",
+                    "전화": place.tel or "정보 없음",
+                    "지역": place.source_region or "",
+                }
             )
-            
-    except Exception as e:
-        print(f"[카테고리 DB 필터링 오류]: {e}")
 
-    # 4. GPT 시스템 프롬프트 가이드 제작
-    system_instruction = (
-        "당신은 구미 및 경북 지역 가이드 'LocalHub'의 스마트한 AI 가이드입니다.\n"
-        "항상 상냥하고 경쾌한 조력자 톤으로 대답해 주시고, 맛깔스러운 사투리를 섞지 않으며 정확한 표준 정보로 안내해 주세요.\n"
-    )
-    
-    if category:
-        system_instruction += f"현재 사용자가 선택한 탐색 테마는 [{category}] 입니다. 이에 초점을 맞춰 맞춤형 제안을 진행해 주세요.\n"
 
-    # DB에서 필터링된 실제 음식점/액티비티/여행지 정보 주입
-    if db_context_list:
-        context_str = "\n".join(db_context_list)
-        system_instruction += (
-            f"\n\n[필독 - 우리 로컬 데이터베이스의 매칭 결과]:\n"
-            f"사용자에게 아래 장소 목록의 실제 이름, 위치 주소, 상세 정보를 가독성 있게 구조화하여 친절히 소개하고 추천해 주세요.\n"
-            f"데이터 리스트:\n{context_str}"
-        )
-    else:
-        if category:
-            system_instruction += (
-                f"\n\n[안내 사항]: 사용자가 선택한 '{category}' 테마에 부합하는 직접 매칭된 DB 장소가 이번엔 검색되지 않았습니다. "
-                f"가지고 계신 자체 지식(구미 및 경상북도 지역 위주)을 적극 활용하여 가장 유명한 {category} 장소들을 추천해 주세요."
-            )
+        # 너무 긴 데이터 방지
+        db_context = db_context[:500]
 
-    # 5. gpt-5-mini 호출
-    try:
+        print("\n========== GPT 전달 데이터 ==========")
+        print("GPT 전달 개수:", len(db_context))
+
+        for data in db_context:
+            print(data)
+
+        print("====================================\n")
+
+        # ==============================
+        # 2. GPT 프롬프트
+        # ==============================
+
+        system_instruction = f"""
+너는 구미/경북 지역 전문 장소 추천 AI이다.
+
+사용자가 선택한 관심사:
+[{category or "전체"}]
+
+사용자 요청:
+{user_prompt}
+
+
+아래 DB 데이터만 사용해서 추천한다.
+
+중요 규칙:
+- 반드시 DB에 존재하는 장소만 추천한다.
+- 존재하지 않는 장소를 절대 만들지 않는다.
+- 주소와 장소명은 DB 원본 그대로 사용한다.
+- 최대 3개 장소만 추천한다.
+- 사용자의 질문 의도를 가장 우선한다.
+- 관심사가 있으면 관심사와 일치하는 장소만 추천한다.
+- 지역명이 포함되어 있으면 해당 지역 장소를 우선한다.
+- 지역명이 없으면 구미/경북 전체 데이터에서 장소가 겹치지 않게 추천한다.
+
+
+추천할 장소가 없는 경우:
+
+현재 조건에 맞는 장소를 찾지 못했어요 😢
+다른 지역이나 관심사를 선택해서 다시 검색해보세요!
+
+추천 결과 출력 형식:
+
+첫 줄에는 친근한 소개 멘트를 작성한다.
+
+소개 멘트는 반드시 문장 끝을 "~할게구미", "~추천해줄게구미", "~찾아봤다구미" 같은
+구미 지역 서비스만의 말투로 표현한다.
+
+예시:
+- 구미에서 이런 맛집을 추천해줄게구미 😊
+- 칠곡에서 가볼 만한 장소를 찾아봤다구미 🌿
+- 대구에서 맛있는 카페를 찾아줄게구미 ☕
+- 원하는 조건에 맞는 장소를 골라봤다구미 😊
+
+단, 예시 문장을 그대로 복사하지 말고
+사용자의 지역과 관심사에 맞게 자연스럽게 변경한다.
+
+이후 아래 형식을 유지한다:
+
+🍽️ 장소명
+⭐ 추천 이유
+📍 주소
+
+🍽️ 장소명
+⭐ 추천 이유
+📍 주소
+
+🍽️ 장소명
+⭐ 추천 이유
+📍 주소
+
+DB 데이터:
+
+{db_context}
+
+"""
+
+
+        # ==============================
+        # 3. GPT 호출
+        # ==============================
+
         completion = client.chat.completions.create(
             model="gpt-5-mini",
             messages=[
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": user_prompt}
+                {
+                    "role": "system",
+                    "content": system_instruction
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                }
             ]
         )
-        return {"reply": completion.choices[0].message.content}
+
+
+        return {
+            "reply": completion.choices[0].message.content
+        }
+
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OpenAI 연동 실패: {str(e)}")
 
-
+        raise HTTPException(
+            status_code=500,
+            detail=f"챗봇 오류: {str(e)}"
+        )
 # ------------------------------------------
 # [기존] 여행지 API
 # ------------------------------------------
