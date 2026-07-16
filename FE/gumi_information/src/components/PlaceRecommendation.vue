@@ -150,6 +150,14 @@ const getDefaultImage = (place) => {
   padding: 10px;
 }
 
+.recommend-wrap h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #111;
+  letter-spacing: -0.5px;
+  margin: 0 0 20px;
+}
+
 .place-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -181,6 +189,7 @@ const getDefaultImage = (place) => {
 
 .place-card:hover {
   transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(124, 92, 252, 0.15);
 }
 
 .place-img {

@@ -91,7 +91,7 @@ const createIconImage = (icon) =>
     </svg>
   `)
 
-  const categoryDefaultImageMap = {
+const categoryDefaultImageMap = {
   tour: createIconImage('📍'),
   food: createIconImage('🍴'),
   cafe: createIconImage('☕'),
@@ -160,7 +160,7 @@ const map = ref(null)
 const markerGroup = ref(null)
 const mapBounds = ref(null)
 
-const pageSize = 10
+const pageSize = 5
 const currentPage = ref(1)
 
 const displayedPlaces = computed(() => {
@@ -328,7 +328,10 @@ const updateMarkers = () => {
 }
 
 const initMap = () => {
-  map.value = L.map('map').setView(regionCenters.all, 13)
+  map.value = L.map('map', {
+    zoomControl: true,
+    tap: false // 모바일 환경 탭 오작동 방지
+  }).setView(regionCenters.all, 13)
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
@@ -342,6 +345,11 @@ const initMap = () => {
 
     fetchPlaces()
   })
+
+  // 지도 로드 후 가로 너비 재정렬 트리거
+  setTimeout(() => {
+    if (map.value) map.value.invalidateSize()
+  }, 300)
 }
 
 const syncPlaceReviewState = (place, reviews) => {
@@ -498,6 +506,47 @@ const submitReview = async () => {
   }
 }
 
+// 📍 [추가된 로직] 사용자의 실제 GPS 위치를 가져와 지도를 이동시키는 함수
+const moveToCurrentLocation = () => {
+  if (!navigator.geolocation) {
+    alert('이 브라우저에서는 위치 서비스를 지원하지 않습니다.')
+    return
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const lat = position.coords.latitude
+      const lng = position.coords.longitude
+
+      if (map.value) {
+        // 사용자 위치로 지도 부드럽게 이동 (줌 레벨: 14)
+        map.value.flyTo([lat, lng], 14, { duration: 1.0 })
+      }
+    },
+    (error) => {
+      console.error('위치 정보를 가져오는데 실패했습니다.', error)
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          alert('위치 권한 허용이 거부되었습니다. 브라우저 설정에서 권한을 확인해주세요.')
+          break
+        case error.POSITION_UNAVAILABLE:
+          alert('가져올 수 없는 현재 위치입니다.')
+          break
+        case error.TIMEOUT:
+          alert('위치 정보를 가져오는 요청이 만료되었습니다.')
+          break
+        default:
+          alert('위치 정보를 가져오는 중 알 수 없는 에러가 발생했습니다.')
+      }
+    },
+    {
+      enableHighAccuracy: true, // 배터리를 더 소모하더라도 정확한 위경도 수집
+      timeout: 10000,
+      maximumAge: 0
+    }
+  )
+}
+
 onMounted(() => {
   initMap()
   fetchPlaces()
@@ -521,111 +570,130 @@ watch(filteredPlaces, () => {
       <h1>구미/경북 지도</h1>
     </div>
 
+    <!-- 필터 컨트롤 영역 -->
     <div class="controls">
       <div class="filter-row">
-        <span>카테고리</span>
-        <button
-          v-for="item in categories"
-          :key="item.id"
-          :class="{ selected: activeCategory === item.id }"
-          @click="setCategory(item.id)"
-        >
-          {{ item.label }}
-        </button>
+        <span class="filter-label">카테고리</span>
+        <div class="filter-buttons-container">
+          <div class="filter-buttons">
+            <button
+              v-for="item in categories"
+              :key="item.id"
+              :class="{ selected: activeCategory === item.id }"
+              @click="setCategory(item.id)"
+            >
+              {{ item.label }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="filter-row">
-        <span>권역</span>
-        <button
-          v-for="item in regions"
-          :key="item.id"
-          :class="{ selected: activeRegion === item.id }"
-          @click="setRegion(item.id)"
-        >
-          {{ item.label }}
-        </button>
+        <span class="filter-label">권역</span>
+        <div class="filter-buttons-container">
+          <div class="filter-buttons">
+            <button
+              v-for="item in regions"
+              :key="item.id"
+              :class="{ selected: activeRegion === item.id }"
+              @click="setRegion(item.id)"
+            >
+              {{ item.label }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="map-card">
-      <div class="map-header">
-        <span class="map-title">구미시</span>
-      </div>
-      <div id="map" class="map-view"></div>
-    </div>
-
-    <section class="place-list">
-      <h3>지도 내 장소 목록</h3>
-
-      <div v-if="filteredPlaces.length === 0" class="empty-message">
-        현재 지도 범위에 표시할 장소가 없습니다.
-      </div>
-
-      <div v-else class="place-cards">
-        <article class="place-card" v-for="place in displayedPlaces" :key="place.id">
-          <div class="place-image-wrap">
-            <img
-              :src="place.image || getDefaultImage(place)"
-              :alt="place.name"
-              class="place-image"
-            />
+    <!-- 대화형 컨텐츠 섹션 (지도 & 리스트) -->
+    <div class="main-content-layout">
+      <!-- 🗺️ 왼쪽/상단: 지도 영역 -->
+      <div class="map-section">
+        <div class="map-card">
+          <div class="map-header">
+            <span class="map-title">구미시 인근 지도 영역</span>
           </div>
-
-          <div class="place-info">
-            <strong>{{ place.name }}</strong>
-            <span>{{ place.region }}</span>
-          </div>
-
-          <div class="place-meta">
-            <div class="place-rating">
-              <strong>★ {{ formatAverageRating(place) }}</strong>
-              <span>({{ getReviewCount(place) }}명)</span>
-            </div>
-
-            <div class="place-actions">
-              <button class="detail-button" type="button" @click="openPlaceDetail(place)">
-                상세보기
-              </button>
-              <button class="review-button" type="button" @click="openReviewModal(place)">
-                리뷰 작성
-              </button>
-            </div>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <div v-if="filteredPlaces.length > 0" class="pagination">
-      <button class="page-nav" type="button" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">
-        이전
-      </button>
-
-      <div class="page-numbers">
-        <button
-          v-for="page in pageWindow"
-          :key="page"
-          class="page-number"
-          :class="{ selected: currentPage === page, ellipsis: page === '...' }"
-          type="button"
-          @click="goToPage(page)"
-        >
-          {{ page }}
+          <div id="map" class="map-view"></div>
+        </div>
+        <!-- 📍 클릭 이벤트를 moveToCurrentLocation 함수에 매핑했습니다. -->
+        <button class="current-location-button" type="button" @click="moveToCurrentLocation">
+          현재 위치로 이동
         </button>
       </div>
 
-      <button class="page-nav" type="button" :disabled="currentPage === totalPages" @click="goToPage(currentPage + 1)">
-        다음
-      </button>
+      <!-- 📋 오른쪽/하단: 리스트 영역 -->
+      <section class="place-list">
+        <h3>지도 내 장소 목록</h3>
+
+        <div v-if="filteredPlaces.length === 0" class="empty-message">
+          현재 지도 범위에 표시할 장소가 없습니다.
+        </div>
+
+        <div v-else class="place-cards">
+          <article class="place-card" v-for="place in displayedPlaces" :key="place.id">
+            <div class="place-card-top">
+              <div class="place-image-wrap">
+                <img
+                  :src="place.image || getDefaultImage(place)"
+                  :alt="place.name"
+                  :class="['place-image', { 'is-default': !place.image }]"
+                />
+              </div>
+
+              <div class="place-info">
+                <strong>{{ place.name }}</strong>
+                <span>{{ place.region }}</span>
+              </div>
+            </div>
+
+            <div class="place-meta">
+              <div class="place-rating">
+                <strong>★ {{ formatAverageRating(place) }}</strong>
+                <span>({{ getReviewCount(place) }}명)</span>
+              </div>
+
+              <div class="place-actions">
+                <button class="detail-button" type="button" @click="openPlaceDetail(place)">
+                  상세보기
+                </button>
+                <button class="review-button" type="button" @click="openReviewModal(place)">
+                  리뷰 작성
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- 페이지네이션 -->
+        <div v-if="filteredPlaces.length > 0" class="pagination">
+          <button class="page-nav" type="button" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">
+            이전
+          </button>
+
+          <div class="page-numbers">
+            <button
+              v-for="page in pageWindow"
+              :key="page"
+              class="page-number"
+              :class="{ selected: currentPage === page, ellipsis: page === '...' }"
+              type="button"
+              @click="goToPage(page)"
+            >
+              {{ page }}
+            </button>
+          </div>
+
+          <button class="page-nav" type="button" :disabled="currentPage === totalPages" @click="goToPage(currentPage + 1)">
+            다음
+          </button>
+        </div>
+      </section>
     </div>
 
-    <button class="current-location-button" type="button">
-      현재 위치로 이동
-    </button>
-
+    <!-- 모달 창 영역들 -->
     <div v-if="selectedPlace" class="detail-modal-overlay" @click.self="closePlaceDetail">
       <div class="detail-modal">
         <button class="detail-modal-close" type="button" @click="closePlaceDetail">×</button>
-
         <div class="detail-modal-content">
           <div class="detail-modal-image-wrap">
             <img
@@ -634,12 +702,10 @@ watch(filteredPlaces, () => {
               class="detail-modal-image"
             />
           </div>
-
           <div class="detail-modal-info">
             <span class="detail-chip">{{ getTypeLabel(selectedPlace.type) }}</span>
             <h3>{{ selectedPlace.name }}</h3>
             <p class="detail-address">{{ selectedPlace.address || selectedPlace.region }}</p>
-
             <div class="detail-meta-row">
               <span>평점: ★ {{ formatAverageRating(selectedPlace) }}</span>
               <span>리뷰수: {{ getReviewCount(selectedPlace) }}</span>
@@ -652,11 +718,9 @@ watch(filteredPlaces, () => {
     <div v-if="reviewModalOpen && reviewTargetPlace" class="detail-modal-overlay" @click.self="closeReviewModal">
       <div class="detail-modal review-modal">
         <button class="detail-modal-close" type="button" @click="closeReviewModal">×</button>
-
         <div class="review-modal-body">
           <h3>{{ reviewTargetPlace.name }}</h3>
           <p class="detail-address">0~10점까지 별점으로 입력할 수 있습니다.</p>
-
           <div class="review-stars">
             <div
               v-for="star in 5"
@@ -665,7 +729,6 @@ watch(filteredPlaces, () => {
               @click="selectHalfStar($event, star)"
             >
               <span class="star-empty">★</span>
-
               <span
                 class="star-filled"
                 :style="{ width: getStarFill(star) + '%' }"
@@ -674,9 +737,7 @@ watch(filteredPlaces, () => {
               </span>
             </div>
           </div>
-
           <div class="review-score-text">선택한 점수: {{ reviewDraft }}/10</div>
-
           <div class="review-actions">
             <button class="review-submit" type="button" :disabled="reviewSubmitting" @click="submitReview">
               {{ reviewSubmitting ? '저장 중...' : '리뷰 저장' }}
@@ -690,253 +751,466 @@ watch(filteredPlaces, () => {
 </template>
 
 <style scoped>
-.map-page { max-width: 1200px; margin: 0 auto; padding: 24px; }
-.topbar h1 { margin-bottom: 20px; font-size: 1.8rem; }
-.controls { display: grid; gap: 16px; margin-bottom: 16px; }
-.filter-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.filter-row span { min-width: 70px; font-weight: 600; }
-button { border: 1px solid #ccc; border-radius: 999px; padding: 10px 16px; cursor: pointer; background: #fff; }
-button.selected { background: #111; color: #fff; border-color: #111; }
-.map-card { border: 1px solid #e0e0e0; border-radius: 18px; overflow: hidden; margin-bottom: 24px; background: #fafafa; }
-.map-header { padding: 16px 20px; border-bottom: 1px solid #ececec; display: flex; align-items: center; justify-content: space-between; }
-.map-title { font-weight: 700; font-size: 1rem; }
+/* ==========================================
+   1. 글로벌 모바일 가로넘침 방지 & 기본 리셋
+   ========================================== */
+*, *::before, *::after {
+  box-sizing: border-box; /* 패딩과 보더로 인한 레이아웃 오버 방지 */
+}
+
+.map-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px 12px;
+  width: 100%;
+  overflow-x: hidden; /* 가로 스크롤 완전 차단 */
+}
+
+.topbar h1 {
+  margin: 0 0 16px 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-align: left;
+}
+
+/* 필터 영역 */
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.filter-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.filter-label {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #1a1a1a;
+}
+
+/* 필터 버튼 가로 터치 스크롤 컨테이너 */
+.filter-buttons-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.filter-buttons {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  width: 100%;
+  overflow-x: auto;
+  padding: 4px 2px 8px 2px; /* 살짝 오프셋을 두어 깔끔한 스크롤 연출 */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* 파이어폭스 스크롤바 숨기기 */
+}
+
+.filter-buttons::-webkit-scrollbar {
+  display: none; /* 크롬/사파리 스크롤바 숨기기 */
+}
+
+button {
+  flex-shrink: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #fff;
+  color: #4b5563;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background: #f9fafb;
+}
+
+button.selected {
+  background: #7c5cfc;
+  color: #fff;
+  border-color: #7c5cfc;
+}
+
+/* ==========================================
+   2. 지도 및 목록 레이아웃 (모바일 세로 배치 우선)
+   ========================================== */
+.main-content-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+/* 지도 섹션 오버플로우 집중 방어 */
+.map-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.map-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  width: 100%;
+  max-width: 100%;
+}
+
+.map-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.map-title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #111827;
+}
+
 .map-view {
   width: 100%;
-  height: 560px;
+  max-width: 100%;
+  height: 280px; /* 모바일 전용 높이 축소 */
   position: relative;
   z-index: 1;
 }
-.place-list h3 { margin: 0 0 16px; font-size: 1.1rem; }
-.place-cards { display: grid; gap: 16px; }
-.place-card {
-  display: grid;
-  grid-template-columns: 72px 1fr auto;
-  gap: 16px;
-  align-items: center;
-  padding: 18px 20px;
-  border: 1px solid #e6e6e6;
-  border-radius: 16px;
-  background: #fff;
+
+.current-location-button {
+  width: 100%;
+  border: none;
+  background: #7c5cfc;
+  color: #fff;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
 }
+
+.current-location-button:hover {
+  background: #6a48e8;
+}
+
+/* 장소 리스트 영역 */
+.place-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.place-list h3 {
+  margin: 12px 0 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111827;
+  text-align: left;
+}
+
+.place-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+/* 장소 카드 구조 (모바일 상하 배치형) */
+.place-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  width: 100%;
+}
+
+.place-card-top {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
+
 .place-image-wrap {
-  width: 72px;
-  height: 72px;
-  border-radius: 16px;
+  width: 54px;
+  height: 54px;
+  border-radius: 10px;
   overflow: hidden;
   background: #f3f4f6;
-  display: grid;
-  place-items: center;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
 .place-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.place-icon { width: 52px; height: 52px; border-radius: 16px; background: #f3f4f6; display: grid; place-items: center; font-size: 1.3rem; }
-.place-info strong { display: block; font-size: 1rem; margin-bottom: 4px; }
-.place-info span { color: #777; font-size: 0.95rem; }
-.place-rating { text-align: right; min-width: 90px; }
-.place-rating strong { display: block; color: #222; }
-.place-rating span { color: #777; font-size: 0.9rem; }
+
+.place-image.is-default {
+  padding: 6px;
+}
+
+.place-info {
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+}
+
+.place-info strong {
+  display: block;
+  font-size: 0.9rem;
+  color: #111827;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.place-info span {
+  display: block;
+  color: #6b7280;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .place-meta {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  border-top: 1px solid #f3f4f6;
+  padding-top: 10px;
 }
-.detail-button {
-  white-space: nowrap;
+
+.place-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
-.current-location-button { width: 100%; margin-top: 24px; border: none; background: #111; color: #fff; padding: 16px; border-radius: 14px; font-size: 1rem; cursor: pointer; }
+
+.place-rating strong {
+  color: #eab308;
+  font-size: 0.85rem;
+}
+
+.place-rating span {
+  color: #9ca3af;
+  font-size: 0.75rem;
+}
+
+.place-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.detail-button,
+.review-button {
+  font-size: 0.75rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.review-button {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+/* 페이지네이션 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin-top: 20px;
+  width: 100%;
+}
+
+.page-nav,
+.page-number {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  min-width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-number.selected {
+  background: #7c5cfc;
+  color: #fff;
+  border-color: #7c5cfc;
+}
+
+.page-numbers {
+  display: flex;
+  gap: 2px;
+}
+
 .empty-message {
-  padding: 40px;
+  padding: 30px;
   text-align: center;
   border: 1px dashed #d1d5db;
-  border-radius: 16px;
-  background: #fafafa;
-  color: #6b7280;
-  font-size: 0.95rem;
+  border-radius: 12px;
+  background: #f9fafb;
+  color: #9ca3af;
+  font-size: 0.8rem;
 }
+
+/* ==========================================
+   3. 상세 & 평점 팝업 레이아웃 (모바일 타깃)
+   ========================================== */
 .detail-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(17, 24, 39, 0.55);
+  background: rgba(17, 24, 39, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 16px;
   z-index: 1000;
 }
+
 .detail-modal {
-  width: min(720px, 100%);
+  width: 100%;
+  max-width: 480px;
   background: #fff;
-  border-radius: 22px;
-  padding: 24px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  border-radius: 16px;
+  padding: 20px;
   position: relative;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
+
 .detail-modal-close {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: 12px;
+  right: 12px;
   border: none;
   background: #f3f4f6;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  font-size: 1.2rem;
-  padding: 0;
-}
-.detail-modal-content {
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 20px;
-  align-items: start;
-}
-.detail-modal-image-wrap {
-  width: 100%;
-  height: 220px;
-  border-radius: 18px;
-  overflow: hidden;
-  background: #f3f4f6;
+  font-size: 1rem;
+  cursor: pointer;
   display: grid;
   place-items: center;
 }
+
+.detail-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+
+.detail-modal-image-wrap {
+  width: 100%;
+  height: 160px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+
 .detail-modal-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+
 .detail-chip {
   display: inline-block;
-  padding: 6px 10px;
+  padding: 4px 8px;
   background: #111;
   color: #fff;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  margin-bottom: 10px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-bottom: 6px;
 }
+
 .detail-modal-info h3 {
-  margin: 0 0 8px;
-  font-size: 1.25rem;
+  margin: 0 0 4px 0;
+  font-size: 1.1rem;
+  font-weight: 800;
 }
+
 .detail-address {
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   color: #6b7280;
+  font-size: 0.8rem;
 }
+
 .detail-meta-row {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   color: #374151;
-  font-weight: 600;
-  margin-bottom: 12px;
-}
-.detail-description {
-  line-height: 1.6;
-  color: #4b5563;
-  margin: 0;
-}
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  margin-top: 20px;
-  flex-wrap: wrap;
-}
-.page-nav,
-.page-number {
-  border: 1px solid #d1d5db;
-  background: #fff;
-  color: #111;
-  padding: 8px 12px;
-  border-radius: 999px;
-  min-width: 40px;
-}
-.page-nav:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.page-number.selected {
-  background: #111;
-  color: #fff;
-  border-color: #111;
-}
-.page-numbers {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
-}
-.page-number.ellipsis {
-  border: none;
-  background: transparent;
-  cursor: default;
-  pointer-events: none;
-}
-.place-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  font-weight: 700;
+  font-size: 0.8rem;
 }
 
-.detail-button,
-.review-button,
-.review-submit,
-.ghost-button {
-  white-space: nowrap;
-  padding: 8px 12px;
-}
-
-.review-button,
-.review-submit {
-  background: #111;
-  color: #fff;
-  border-color: #111;
+/* 별점 모달 */
+.detail-modal.review-modal {
+  max-width: 340px;
 }
 
 .review-modal-body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
-  gap: 28px;
-  padding: 24px 0;
+  gap: 12px;
+  padding: 12px 0 0 0;
 }
 
 .review-modal-body h3 {
-  margin: 0;
-  font-size: 1.5rem;
-  line-height: 1.4;
-}
-
-.review-modal-body .detail-address {
-  margin: 0;
-  color: #6b7280;
   font-size: 1rem;
+  margin: 0;
 }
 
 .review-stars {
   display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin: 10px 0;
+  gap: 4px;
 }
 
 .star-wrapper {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   cursor: pointer;
-  font-size: 40px;
-  line-height: 1;
-}
-.detail-modal.review-modal {
-  width: min(560px, 95%);
+  font-size: 32px;
 }
 
 .star-empty {
-  color: #d1d5db;
+  color: #e5e7eb;
 }
 
 .star-filled {
@@ -945,41 +1219,147 @@ button.selected { background: #111; color: #fff; border-color: #111; }
   left: 0;
   overflow: hidden;
   color: #f59e0b;
-  white-space: nowrap;
-}
-
-.rating-star-button {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  font-size: 1.2rem;
-  display: grid;
-  place-items: center;
-  color: #d1d5db;
-}
-
-.rating-star-button.filled {
-  color: #f59e0b;
-  background: #fff7e6;
-  border-color: #f59e0b;
 }
 
 .review-score-text {
-  font-size: 1.15rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  color: #111;
 }
 
 .review-actions {
   display: flex;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 8px;
+  gap: 6px;
+  width: 100%;
+}
+
+.review-submit {
+  flex: 1;
+  background: #111;
+  color: white;
+  border-color: #111;
 }
 
 .ghost-button {
+  flex: 1;
   background: #f3f4f6;
-  color: #111;
-  border-color: #d1d5db;
+  color: #374151;
+  border-color: #e5e7eb;
+}
+
+/* ==========================================
+   4. 반응형 미디어 쿼리 (데스크톱 및 패드형 스크린)
+   ========================================== */
+
+/* 태블릿 이상 (768px 이상) */
+@media (min-width: 768px) {
+  .map-page {
+    padding: 24px 20px;
+  }
+
+  .topbar h1 {
+    font-size: 1.6rem;
+  }
+
+  /* 가로로 전환 */
+  .filter-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .filter-label {
+    min-width: 70px;
+    font-size: 0.9rem;
+  }
+
+  .filter-buttons {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding: 0;
+  }
+
+  .map-view {
+    height: 360px;
+  }
+
+  /* 태블릿 구조: 카드를 가로 3단 Grid 레이아웃으로 변경 */
+  .place-card {
+    display: grid;
+    grid-template-columns: 64px 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 16px;
+  }
+
+  .place-card-top {
+    display: contents;
+  }
+
+  .place-image-wrap {
+    width: 64px;
+    height: 64px;
+  }
+
+  .place-meta {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    border-top: none;
+    padding-top: 0;
+    width: auto;
+  }
+
+  .place-rating {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
+  }
+}
+
+/* 데스크톱 (1024px 이상) */
+@media (min-width: 1024px) {
+  .topbar h1 {
+    font-size: 1.8rem;
+    margin-bottom: 24px;
+  }
+
+  .controls {
+    margin-bottom: 24px;
+  }
+
+  /* 가로 2열 배치 복구 */
+  .main-content-layout {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 28px;
+  }
+
+  .map-view {
+    height: 500px;
+  }
+
+  .place-list h3 {
+    margin: 0 0 16px;
+    font-size: 1.2rem;
+  }
+
+  /* 상세 팝업 2단 그리드로 시원하게 보기 */
+  .detail-modal {
+    max-width: 640px;
+  }
+
+  .detail-modal-content {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 20px;
+  }
+
+  .detail-modal-image-wrap {
+    height: 180px;
+  }
+
+  .detail-modal-info h3 {
+    font-size: 1.3rem;
+  }
 }
 </style>
