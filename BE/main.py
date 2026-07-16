@@ -561,8 +561,19 @@ def list_places(
     for place in places:
         item = place_to_dict(place)
 
-        item["avg_rating"] = 0
-        item["review_count"] = 0
+        review_data = (
+            db.query(
+                func.avg(PlaceReview.rating).label("avg_rating"),
+                func.count(PlaceReview.id).label("review_count")
+            )
+            .filter(
+                PlaceReview.place_content_id == place.content_id
+            )
+            .first()
+        )
+
+        item["avg_rating"] = round(review_data.avg_rating, 1) if review_data.avg_rating else 0
+        item["review_count"] = review_data.review_count or 0
 
         result.append(item)
 
