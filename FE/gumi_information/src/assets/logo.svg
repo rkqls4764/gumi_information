@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 178 214" width="178" height="214">
+  <!-- 전체 배경을 완전 투명(transparent)으로 설정한 SVG 기반 벡터 로고 데이터입니다. -->
+  <defs>
+    <radialGradient id="pinGrad" cx="50%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#E8BCFF" />
+      <stop offset="35%" stop-color="#B85EE6" />
+      <stop offset="100%" stop-color="#7B1FA2" />
+    </radialGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E8FCD0" />
+      <stop offset="100%" stop-color="#8BC34A" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#701a75" flood-opacity="0.15" />
+    </filter>
+  </defs>
+
+  <!-- 바깥 흰 배경이 없고, 그림자만 살짝 들어간 투명 배경 핀 아이콘 -->
+  <g filter="url(#shadow)">
+    <!-- 핀 몸체 -->
+    <path d="M89 10 C39 10 3 48 3 95 C3 147 89 204 89 204 C89 204 175 147 175 95 C175 48 139 10 89 10 Z" fill="url(#pinGrad)" stroke="#FFFFFF" stroke-width="4" stroke-linejoin="round"/>
+    
+    <!-- 핀 내부 입체감 하이라이트 -->
+    <path d="M12 95 C12 55 45 20 89 20" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.3" />
+    
+    <!-- 포도 알맹이들 (중앙 정렬) -->
+    <g transform="translate(0, 5)">
+      <!-- 맨 윗줄 포도알 -->
+      <circle cx="64" cy="65" r="16" fill="#BA68C8" stroke="#7B1FA2" stroke-width="3" />
+      <circle cx="89" cy="62" r="17" fill="#9C27B0" stroke="#7B1FA2" stroke-width="3" />
+      <circle cx="114" cy="65" r="16" fill="#BA68C8" stroke="#7B1FA2" stroke-width="3" />
+      
+      <!-- 둘째 줄 포도알 -->
+      <circle cx="72" cy="88" r="16" fill="#AB47BC" stroke="#7B1FA2" stroke-width="3" />
+      <circle cx="106" cy="88" r="16" fill="#AB47BC" stroke="#7B1FA2" stroke-width="3" />
+      
+      <!-- 셋째 줄 (가운데 아래) 포도알 -->
+      <circle cx="89" cy="110" r="16" fill="#8E24AA" stroke="#7B1FA2" stroke-width="3" />
+      
+      <!-- 포도 광택 반짝이 효과 -->
+      <path d="M82 54 A 8 8 0 0 1 94 54" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.8" />
+      <polygon points="112,74 115,70 119,69 115,68 112,64 110,68 106,69 110,70" fill="#FFFFFF" />
+    </g>
+
+    <!-- 나뭇잎 (상단 장식) -->
+    <path d="M74 16 C60 0 84 2 89 18 C94 2 118 0 104 16 C96 25 82 25 74 16 Z" fill="url(#leafGrad)" stroke="#7B1FA2" stroke-width="3" />
+    <path d="M89 18 Q 89 10 83 6" stroke="#558B2F" stroke-width="2" fill="none" />
+    <path d="M89 18 Q 91 10 95 6" stroke="#558B2F" stroke-width="2" fill="none" />
+  </g>
+</svg>

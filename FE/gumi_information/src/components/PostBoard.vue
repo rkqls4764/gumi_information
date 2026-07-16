@@ -10,10 +10,10 @@
       <button @click="openWriteModal" class="write-top-btn">✏️ 글쓰기</button>
     </div>
 
-    <!-- 🌟 [수정] 좌우 분할 레이아웃 추가 -->
+    <!-- 좌우 분할 레이아웃 -->
     <div class="board-layout">
       
-      <!-- ⬅️ 왼쪽 사이드바: 실시간 랭킹 (인기 조회수 & 인기 좋아요) -->
+      <!-- ⬅️ 왼쪽 사이드바: 실시간 랭킹 및 브랜드 홍보 광고 -->
       <aside class="sidebar-ranking">
         <!-- 1. 조회수 높은 인기 게시글 -->
         <div class="ranking-card">
@@ -39,6 +39,19 @@
             </li>
           </ul>
           <div v-else class="no-ranking">집계된 데이터가 없습니다.</div>
+        </div>
+
+        <!-- 3. 구미 플레이스 브랜드 홍보 광고 배너 -->
+        <div class="promo-banner">
+          <div class="promo-badge">AD</div>
+          <div class="promo-content">
+            <span class="promo-emoji">
+              <img :src="logoImg" alt="어디갈구미 로고" class="promo-logo-image" />
+            </span>
+            <h5 class="promo-title">구미 플레이스</h5>
+            <p class="promo-desc">내 취향에 딱 맞는 구미의 핫플레이스와 숨은 맛집을 스마트한 AI 챗봇과 함께 찾아보세요!</p>
+            <button @click="triggerPromoAction" class="promo-btn">지금 찾으러 가기 🚀</button>
+          </div>
         </div>
       </aside>
 
@@ -107,10 +120,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, defineEmits } from 'vue'
 import axios from 'axios'
+import logoImg from '../assets/logo.svg' // App.vue와 같은 depth의 assets 폴더에서 로고 가져오기
 
 const API_URL = 'http://localhost:8000/api/posts'
+
+// 부모 컴포넌트로 챗봇 열기 이벤트를 보내기 위한 설정
+const emit = defineEmits(['open-chatbot'])
 
 const searchQuery = ref('')
 const posts = ref([])
@@ -126,14 +143,14 @@ const isEditMode = ref(false)
 const currentPostId = ref(null)
 const form = ref({ title: '', summary: '', author: '', password: '' })
 
-// 🌟 [추가 계산 속성] 조회수 상위 5개 추출
+// 조회수 상위 5개 추출
 const topViewedPosts = computed(() => {
   return [...posts.value]
     .sort((a, b) => b.views - a.views)
     .slice(0, 5)
 })
 
-// 🌟 [추가 계산 속성] 좋아요 상위 5개 추출
+// 좋아요 상위 5개 추출
 const topLikedPosts = computed(() => {
   return [...posts.value]
     .sort((a, b) => b.likes - a.likes)
@@ -183,19 +200,21 @@ const toggleDetail = async (id) => {
   }
 }
 
-// 🌟 [추가] 왼쪽 사이드바 랭킹 클릭 시 본문의 해당 상세글 열어주기 & 해당 페이지로 강제 이동
+// 왼쪽 사이드바 랭킹 클릭 시 본문의 해당 상세글 열어주기 & 해당 페이지로 강제 이동
 const toggleDetailFromRanking = async (id) => {
-  // 클릭한 게시물이 전체 배열 중 몇 번째에 위치하는지 찾기
   const targetIndex = posts.value.findIndex(p => p.id === id)
   if (targetIndex !== -1) {
-    // 해당 게시글이 있는 페이지 계산 후 강제 이동
     currentPage.value = Math.floor(targetIndex / itemsPerPage) + 1
-    // 상세글 본문 오픈
     await toggleDetail(id)
-    
-    // 사용자가 보기 편하도록 부드러운 스크롤 탑 이동
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+}
+
+// 광고 클릭 액션 핸들러
+const triggerPromoAction = () => {
+  // 부모(App.vue)에게 챗봇창을 활성화해달라는 신호를 전달합니다.
+  emit('open-chatbot')
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 // 작성 모달 열기
@@ -285,7 +304,7 @@ onMounted(() => { fetchPosts() })
 </script>
 
 <style scoped>
-/* 기존 최대 너비를 약간 늘려서 2분할 레이아웃이 여유롭게 들어갈 수 있게 합니다. */
+/* 전체 레이아웃을 여유있게 변경 */
 .board-container { max-width: 1040px; margin: 0 auto; padding: 20px; font-family: sans-serif; }
 .filter-bar { display: flex; gap: 12px; margin-bottom: 24px; }
 .search-box { position: relative; flex: 1; }
@@ -293,7 +312,7 @@ onMounted(() => { fetchPosts() })
 .search-input { width: 100%; box-sizing: border-box; padding: 12px 12px 12px 40px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
 .write-top-btn { padding: 0 20px; background: #111; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
-/* 🌟 [신규 추가] 좌측 사이드바 및 우측 본문 배치를 위한 그리드 레이아웃 */
+/* 좌측 사이드바와 우측 본문 배치를 위한 그리드 레이아웃 */
 .board-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
@@ -301,7 +320,7 @@ onMounted(() => { fetchPosts() })
   align-items: start;
 }
 
-/* 🌟 [신규 추가] 왼쪽 사이드바 실시간 랭킹 스타일 */
+/* 사이드바 영역 */
 .sidebar-ranking {
   display: flex;
   flex-direction: column;
@@ -374,7 +393,83 @@ onMounted(() => { fetchPosts() })
   padding: 12px 0;
 }
 
-/* 오른쪽 전체 게시글 영역 */
+/* 홍보 광고 배너 스타일 */
+/* 배너 내부 로고 이미지 크기 및 비율 최적화 */
+.promo-logo-image {
+  height: 55px;        /* 배너 텍스트 높이와 어울리는 크기 (필요시 조정 가능) */
+  width: auto;         /* 가로 세로 비율 강제 유지 */
+  object-fit: contain;
+  vertical-align: middle;
+}
+.promo-banner {
+  position: relative;
+  background: linear-gradient(135deg, #111111 0%, #2c3e50 100%);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.promo-badge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 9px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.promo-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.promo-emoji {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+.promo-title {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.3px;
+  color: #ffffff;
+}
+.promo-desc {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #dddddd;
+  margin: 0 0 14px 0;
+  word-break: keep-all;
+}
+.promo-btn {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111111;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.promo-btn:hover {
+  background: #f1f3f5;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(255, 255, 255, 0.15);
+}
+.promo-btn:active {
+  transform: translateY(0);
+}
+
+/* 우측 게시판 본문 영역 */
 .main-post-area {
   display: flex;
   flex-direction: column;
@@ -407,7 +502,7 @@ onMounted(() => { fetchPosts() })
 
 .no-posts { text-align: center; color: #aaa; padding: 40px 0; }
 
-/* 페이지네이션 스타일 */
+/* 페이지네이션 */
 .pagination-container {
   display: flex;
   justify-content: center;
@@ -458,7 +553,7 @@ onMounted(() => { fetchPosts() })
   border-color: #111111;
 }
 
-/* 모달 컴포넌트 스타일 */
+/* 모달 */
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .modal-content { background: #fff; padding: 24px; border-radius: 12px; width: 90%; max-width: 460px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
 .modal-content h3 { margin-top: 0; margin-bottom: 16px; }
@@ -468,7 +563,7 @@ onMounted(() => { fetchPosts() })
 .btn-primary { background: #111; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
 .btn-secondary { background: #eee; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
 
-/* 🌟 [반응형 최적화] 모바일 브라우저나 창이 좁아지면 사이드바가 위로, 목록이 아래로 정렬되게 구성 */
+/* 📱 모바일/좁은 화면 반응형 분할 해제 */
 @media (max-width: 768px) {
   .board-layout {
     grid-template-columns: 1fr;
