@@ -1,17 +1,20 @@
 <!-- src/App.vue -->
 <template>
-  <div class="localhub-container">
-    <!-- 상단 네비게이션 -->
+  <div class="localhub-container" :class="{ 'bottom-nav-active': isMobile }">
+    <!-- 상단 네비게이션 (데스크톱 전용 / 모바일에서는 로고만 상단 표시) -->
     <header class="localhub-header">
       <div class="header-content">
         <!-- 로고 -->
         <div class="logo-area" @click="currentMenu = 'home'" style="cursor: pointer;">
-          <span class="logo-text"><img :src="logoImg" alt="구미 플레이스 로고" class="logo-image" />어디갈구미?</span>
+          <span class="logo-text">
+            <img :src="logoImg" alt="구미 플레이스 로고" class="logo-image" />
+            어디갈구미?
+          </span>
           <span class="logo-sub">구미/경북 지역 정보 & 커뮤니티</span>
         </div>
         
-        <!-- 메뉴 -->
-        <nav class="nav-menu">
+        <!-- 데스크톱 전용 메뉴 (CSS로 모바일에서 숨김 처리) -->
+        <nav class="nav-menu desktop-only">
           <button 
             v-for="menu in menus" 
             :key="menu.id"
@@ -63,15 +66,27 @@
             <h2>💬 자유 소통 공간</h2>
             <p>이웃 주민들과 편하게 이야기와 추천 명소 정보를 나누는 게시판입니다.</p>
           </div>
-          <!-- 🌟 [수정] PostBoard에서 전달하는 open-chatbot 이벤트를 수신하여 기존 isChatOpen 변수를 true로 변경합니다. -->
           <PostBoard @open-chatbot="isChatOpen = true" />
         </section>
       </template>
 
     </main>
 
+    <!-- 📱 모바일 전용 하단 네비게이션 바 -->
+    <nav class="mobile-bottom-nav mobile-only">
+      <button 
+        v-for="menu in menus" 
+        :key="menu.id"
+        @click="currentMenu = menu.id"
+        :class="['mobile-nav-item', { active: currentMenu === menu.id }]"
+      >
+        <span class="mobile-menu-icon">{{ menu.icon }}</span>
+        <span class="mobile-menu-name">{{ menu.name }}</span>
+      </button>
+    </nav>
+
     <!-- 🤖 [챗봇 레이어] 모든 페이지 공통 적용 -->
-    <div class="chatbot-wrapper">
+    <div class="chatbot-wrapper" :class="{ 'is-open': isChatOpen }">
       <!-- 챗봇 창 (isChatOpen이 true일 때만 표시) -->
       <div v-if="isChatOpen" class="chatbot-window">
         <div class="chat-header">
@@ -79,7 +94,7 @@
             <span class="bot-avatar">🍇</span>
             <div>
               <h4>마이구 가이드</h4>
-              <span class="online-dot">● 온라온 (탱글)</span>
+              <span class="online-dot">● 온라인 (탱글)</span>
             </div>
           </div>
           <button class="chat-close-btn" @click="isChatOpen = false">✕</button>
@@ -106,7 +121,7 @@
             <p>{{ msg.text }}</p>
           </div>
 
-          <!-- 🍇 [수정] 대답을 기다리는 동안(isBotLoading === true) 노출되는 마이구 젤리 로딩 요소 -->
+          <!-- 대답을 기다리는 동안 노출되는 로딩 요소 -->
           <div v-if="isBotLoading" class="gumi-loading-wrap">
             <div class="gumi-loader-container">
               <div class="orbit-item landmark-mountain">⛰️</div>
@@ -141,7 +156,6 @@
             </div>
             <div class="gumi-status-text">마이구가 핫플을 골라내고 있어요...</div>
           </div>
-
         </div>
 
         <!-- 메세지 입력창 -->
@@ -156,10 +170,13 @@
         </form>
       </div>
 
-      <!-- 플로팅 고정 버튼 -->
-      <button class="chatbot-toggle-btn" @click="isChatOpen = !isChatOpen" :class="{ open: isChatOpen }">
-        <span v-if="!isChatOpen">🍇 마이구 챗봇</span>
-        <span v-else>✕ 닫기</span>
+      <!-- 플로팅 고정 버튼 (챗봇이 닫혀있거나 PC일 때만 활성화) -->
+      <button 
+        v-show="!isChatOpen" 
+        class="chatbot-toggle-btn" 
+        @click="isChatOpen = !isChatOpen"
+      >
+        <span>🍇 마이구 챗봇</span>
       </button>
     </div>
 
@@ -167,8 +184,8 @@
 </template>
 
 <script setup>
-import { ref, nextTick, computed } from 'vue'
-import logoImg from './assets/logo.png' // 경로가 다를 경우 './src/assets/logo.png' 등으로 맞춰주세요.
+import { ref, nextTick, computed, onMounted, onUnmounted } from 'vue'
+import logoImg from './assets/logo.png' 
 import CategorySelector from './components/CategorySelector.vue'
 import PostBoard from './components/PostBoard.vue'
 import LocalInfoView from './views/LocalInfoView.vue'
@@ -176,8 +193,6 @@ import MapView from './views/MapView.vue'
 import PlaceRecommendation from './components/PlaceRecommendation.vue'
 
 const selectedCategory = ref(null)
-
-// 탭 메뉴 설정
 const currentMenu = ref('home')
 
 const menus = [
@@ -187,14 +202,29 @@ const menus = [
   { id: 'community', name: '커뮤니티', icon: '💬' }
 ]
 
+// 화면 해상도 체크 (모바일 여부 확인)
+const isMobile = ref(false)
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 640
+}
+
+onMounted(() => {
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
+})
+
 // 🤖 챗봇 상태 및 로직 변수들 선언
 const isChatOpen = ref(false)
 const userMessage = ref('')
 const isBotLoading = ref(false)
-const messageContainer = ref(null) // DOM 엘리먼트 참조용 ref
+const messageContainer = ref(null) 
 
-// 🤖 [추가] 챗봇용 카테고리 상태 정의
-const selectedChatCategory = ref(null) // 기본값은 필터링 없음(null)
+// 🤖 챗봇용 카테고리 상태 정의
+const selectedChatCategory = ref(null) 
 const chatCategories = [
   { label: '운동', value: '운동', icon: '💪' },
   { label: '음식', value: '음식', icon: '🍕' },
@@ -205,7 +235,7 @@ const chatCategories = [
 // 입력창 플레이스홀더 동적 변경
 const getInputPlaceholder = computed(() => {
   if (selectedChatCategory.value) {
-    return `[${selectedChatCategory.value}] 관련 질문을 입력하라구...`
+    return `[${selectedChatCategory.value}] 질문을 입력하라구...`
   }
   return "메시지를 입력하라구..."
 })
@@ -226,7 +256,7 @@ const handleCategorySelection = (categoryTitle) => {
 // 카테고리 필터 토글 함수
 const toggleCategory = (categoryValue) => {
   if (selectedChatCategory.value === categoryValue) {
-    selectedChatCategory.value = null // 다시 누르면 필터 해제
+    selectedChatCategory.value = null 
     chatMessages.value.push({ 
       sender: 'bot', 
       text: '카테고리 필터링이 해제되었습니다. 전체 구미 데이터에서 정보를 찾습니다.' 
@@ -262,7 +292,6 @@ const sendMessage = async () => {
   chatMessages.value.push({ sender: 'user', text: inputMessage })
   userMessage.value = ''
   
-  // 1. 로딩 활성화 및 화면 이동
   isBotLoading.value = true
   scrollToBottom()
 
@@ -292,7 +321,6 @@ const sendMessage = async () => {
       text: '미안해구미... 일시적인 오류가 나서 정보를 찾지 못했어. 조금만 이따가 다시 물어봐줘!' 
     })
   } finally {
-    // 2. 로딩 해제 및 화면 이동
     isBotLoading.value = false
     scrollToBottom()
   }
@@ -300,21 +328,29 @@ const sendMessage = async () => {
 </script>
 
 <style scoped>
+/* 반응형 전용 유틸리티 */
+.desktop-only {
+  display: flex;
+}
+.mobile-only {
+  display: none !important;
+}
+
 /* 로고 텍스트 전체 영역 정렬 */
 .logo-text {
   display: flex;
   align-items: center;
-  gap: 8px; /* 로고 이미지와 글자 사이의 간격 */
-  font-size: 24px; /* 기존 헤더 폰트 크기 유지 */
+  gap: 8px; 
+  font-size: 24px; 
   font-weight: 800;
   color: #111;
   margin: 0;
 }
 
-/* 🌟 로고 이미지 크기 및 비율 조절 */
+/* 로고 이미지 크기 및 비율 조절 */
 .logo-image {
-  height: 40px;       /* 텍스트 크기(24px)보다 살짝 크게 잡거나 헤더 높이에 맞춰 조절 가능 */
-  width: auto;        /* 가로 비율 자동 유지 */
+  height: 40px;      
+  width: auto;        
   object-fit: contain;
   display: inline-block;
   vertical-align: middle;
@@ -328,7 +364,14 @@ const sendMessage = async () => {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  transition: padding-bottom 0.2s ease;
 }
+
+/* 모바일 하단바 활성화 시 패딩 추가 */
+.localhub-container.bottom-nav-active {
+  padding-bottom: 64px;
+}
+
 .localhub-header {
   position: sticky;
   top: 0;
@@ -428,20 +471,8 @@ const sendMessage = async () => {
   color: #666;
   margin: 0;
 }
-.map-placeholder {
-  width: 100%;
-  height: 500px;
-  background-color: #f1f3f5;
-  border-radius: 12px;
-  border: 1.5px dashed #dee2e6;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #868e96;
-}
 
-/* 🤖 플로팅 챗봇 버튼 & 창 전용 디자인 (마이구 테마 반영) */
+/* 🤖 플로팅 챗봇 버튼 & 창 전용 디자인 */
 .chatbot-wrapper {
   position: fixed;
   bottom: 24px;
@@ -454,7 +485,7 @@ const sendMessage = async () => {
 }
 
 .chatbot-toggle-btn {
-  background-color: #701a75; /* 마이구 퍼플 변경 */
+  background-color: #701a75; 
   color: #ffffff;
   border: none;
   padding: 14px 22px;
@@ -473,10 +504,6 @@ const sendMessage = async () => {
   transform: translateY(-2px);
   background-color: #4a044e;
   box-shadow: 0 6px 20px rgba(112, 26, 117, 0.3);
-}
-
-.chatbot-toggle-btn.open {
-  background-color: #fa5252;
 }
 
 .chatbot-window {
@@ -498,7 +525,7 @@ const sendMessage = async () => {
 }
 
 .chat-header {
-  background-color: #701a75; /* 마이구 퍼플 변경 */
+  background-color: #701a75; 
   color: #ffffff;
   padding: 16px;
   display: flex;
@@ -532,13 +559,13 @@ const sendMessage = async () => {
   background: none;
   border: none;
   color: #ffffff;
-  font-size: 16px;
+  font-size: 18px;
   cursor: pointer;
-  opacity: 0.7;
+  opacity: 0.8;
+  padding: 4px;
 }
 .chat-close-btn:hover { opacity: 1; }
 
-/* 🤖 챗봇 내부 상단 카테고리 바 스타일 */
 .chat-category-bar {
   background-color: #f1f3f5;
   padding: 10px 14px;
@@ -578,7 +605,7 @@ const sendMessage = async () => {
 }
 
 .category-chip.active {
-  background-color: #701a75; /* 마이구 퍼플 변경 */
+  background-color: #701a75; 
   border-color: #701a75;
   color: #ffffff;
   box-shadow: 0 2px 6px rgba(112, 26, 117, 0.15);
@@ -615,7 +642,7 @@ const sendMessage = async () => {
 }
 
 .message-bubble.user {
-  background-color: #701a75; /* 마이구 퍼플 변경 */
+  background-color: #701a75; 
   color: #ffffff;
   align-self: flex-end;
   border-top-right-radius: 2px;
@@ -640,7 +667,7 @@ const sendMessage = async () => {
 .chat-input-form input:focus { border-color: #701a75; }
 
 .chat-input-form button {
-  background-color: #701a75; /* 마이구 퍼플 변경 */
+  background-color: #701a75; 
   color: white;
   border: none;
   padding: 0 16px;
@@ -654,7 +681,7 @@ const sendMessage = async () => {
   cursor: not-allowed;
 }
 
-/* 🍇 마이구 젤리 로딩 CSS 구현 */
+/* 🍇 마이구 젤리 로딩 CSS */
 .gumi-loading-wrap {
   align-self: flex-start;
   display: flex;
@@ -707,7 +734,6 @@ const sendMessage = async () => {
   animation: textFlicker 1.5s infinite;
 }
 
-/* 🍇 애니메이션 키프레임 세팅 */
 @keyframes jellyBounce {
   0%, 100% { transform: scale(1) translateY(0); }
   50% { transform: scaleY(1.08) scaleX(0.95) translateY(-8px); }
@@ -730,31 +756,182 @@ const sendMessage = async () => {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* 📱 반응형 분기 처리 (Tablet / Desktop Mid-range) */
 @media (max-width: 1024px) {
   .main-content {
     grid-template-columns: 1fr;
     gap: 24px;
-    padding: 16px;
+    padding: 24px 16px;
   }
   .left-section, .right-section, .full-section {
     padding: 24px;
   }
 }
 
+/* 📱 모바일 최적화 (Mobile Phone, max-width: 640px) */
 @media (max-width: 640px) {
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only {
+    display: flex !important;
+  }
+
+  /* 헤더 슬림화 및 로고 위주 노출 */
+  .localhub-header {
+    height: 56px;
+    display: flex;
+    align-items: center;
+  }
   .header-content {
     padding: 0 16px;
-    height: 64px;
+    height: 100%;
+    justify-content: center; /* 로고 중앙 정렬 */
   }
-  .logo-text { font-size: 20px; }
-  .logo-sub { display: none; }
-  .nav-item { padding: 0 12px; font-size: 14px; }
-  .menu-name { display: none; }
-  .menu-icon { font-size: 22px; }
+  .logo-text { 
+    font-size: 18px; 
+  }
+  .logo-image {
+    height: 32px;
+  }
+  .logo-sub { 
+    display: none; 
+  }
+
+  /* 모바일 본문 영역 여백 최소화 */
+  .main-content {
+    padding: 16px 12px;
+    gap: 16px;
+  }
+  .left-section, .right-section, .full-section {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  /* 📱 모바일 전용 하단 앱바 네비게이션 스타일 */
+  .mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background-color: #ffffff;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 990;
+    padding-bottom: env(safe-area-inset-bottom); /* iOS 노치 홈바 대응 */
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  }
+
+  .mobile-nav-item {
+    background: none;
+    border: none;
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: #868e96;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .mobile-menu-icon {
+    font-size: 20px;
+  }
+
+  .mobile-nav-item.active {
+    color: #7c5cfc;
+    font-weight: 700;
+  }
+
+  /* 📱 모바일 환경 챗봇 전체화면 오버레이 최적화 */
+  .chatbot-wrapper {
+    bottom: 0;
+    right: 0;
+    width: 100%;
+    height: 0;
+  }
   
+  .chatbot-wrapper.is-open {
+    height: 100%;
+  }
+
+  /* 챗봇 닫기 버튼을 모바일에 맞추어 우측 하단에 플로팅 배치 */
+  .chatbot-toggle-btn {
+    position: fixed;
+    bottom: 76px; /* 하단 네비게이션과 겹치지 않는 위치 */
+    right: 16px;
+    padding: 12px 18px;
+    font-size: 13px;
+    border-radius: 24px;
+    box-shadow: 0 4px 12px rgba(112, 26, 117, 0.3);
+  }
+
+  /* 챗봇 창 전체 화면 덮기 */
   .chatbot-window {
-    width: calc(100vw - 32px);
-    height: 440px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    height: -webkit-fill-available; /* 모바일 브라우저 주소창 높이 대응 */
+    border-radius: 0;
+    border: none;
+    z-index: 1000;
+    animation: slideUpMobile 0.25s ease-out;
+  }
+
+  @keyframes slideUpMobile {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .chat-header {
+    padding: 14px 16px;
+  }
+  
+  .chat-close-btn {
+    font-size: 22px; /* 터치하기 편하게 터치 타겟 크기 확대 */
+    padding: 6px;
+  }
+
+  .chat-category-bar {
+    padding: 8px 12px;
+  }
+
+  .category-chip {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .chat-messages {
+    padding: 12px;
+  }
+
+  .message-bubble {
+    font-size: 13px;
+    max-width: 85%;
+  }
+
+  .chat-input-form {
+    padding: 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom)); /* iOS 노치 키보드 대응 */
+  }
+
+  .chat-input-form input {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .chat-input-form button {
+    padding: 0 12px;
+    font-size: 13px;
   }
 }
 </style>
